@@ -12,6 +12,12 @@ import {
   ScrollView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useAuth, useUser } from '@clerk/clerk-expo';
+
+// Helper function to check if user is admin
+const isUserAdmin = (user) => {
+  return user?.publicMetadata?.role === 'admin';
+};
 
 export default function AdminScreen() {
   const [searchText, setSearchText] = useState('');
@@ -20,7 +26,7 @@ export default function AdminScreen() {
   const [limit] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
   const [sortBy, setSortBy] = useState('licencePlate');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [formData, setFormData] = useState({
@@ -30,11 +36,39 @@ export default function AdminScreen() {
     designation: '',
   });
   const [actionProcessing, setActionProcessing] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [error, setError] = useState('');
+  
   const navigation = useNavigation();
+  const { signOut } = useAuth();
+  const { user, isLoaded } = useUser();
+
+  // Check if user is admin when component mounts
+  useEffect(() => {
+    if (isLoaded && user) {
+      const adminStatus = isUserAdmin(user);
+      setIsAdmin(adminStatus);
+      
+      if (adminStatus) {
+        fetchVehicles(1, 'licencePlate', '');
+      } else {
+        setError('You do not have admin privileges.');
+        setLoading(false);
+      }
+    }
+  }, [isLoaded, user]);
+
+  // Redirect to home if user is not authenticated or not an admin
+  useEffect(() => {
+    if (isLoaded && !user) {
+      navigation.replace('UserHome');
+    }
+  }, [isLoaded, user, navigation]);
 
   const fetchVehicles = async (newPage = page, newSortBy = sortBy, query = searchText) => {
     setLoading(true);
     try {
+      const token = await user.getToken();
       const params = new URLSearchParams({
         page: newPage.toString(),
         limit: limit.toString(),
@@ -44,15 +78,24 @@ export default function AdminScreen() {
         params.append('licencePlate', query);
       }
 
-      // Replace <Your IP> with your backend IP
-      const response = await fetch(`http://192.168.64.57:5000/vehicles?${params.toString()}`);
-      const json = await response.json();
+      const response = await fetch(`http://192.168.156.57:5000/vehicles?${params.toString()}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
 
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch vehicles');
+      }
+
+      const json = await response.json();
       setVehicles(json.vehicles);
       setPage(json.page);
       setTotalPages(json.totalPages);
     } catch (error) {
-      alert('Failed to load vehicles: ' + error.message);
+      console.error('Error fetching vehicles:', error);
+      Alert.alert('Error', error.message || 'Failed to load vehicles');
     } finally {
       setLoading(false);
     }
@@ -107,20 +150,27 @@ export default function AdminScreen() {
     if (!selectedVehicle) return;
     setActionProcessing(true);
     try {
-      const response = await fetch(`http://192.168.64.57:5000/vehicles/${selectedVehicle._id}`, {
+      const token = await user.getToken();
+      const response = await fetch(`http://192.168.156.57:5000/vehicles/${selectedVehicle._id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
         body: JSON.stringify(formData),
       });
+      
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Update failed');
       }
-      alert('Vehicle updated successfully');
+      
+      Alert.alert('Success', 'Vehicle updated successfully');
       closeModal();
       fetchVehicles(page, sortBy, searchText.trim());
     } catch (error) {
-      alert('Update failed: ' + error.message);
+      console.error('Error updating vehicle:', error);
+      Alert.alert('Error', error.message || 'Failed to update vehicle');
     } finally {
       setActionProcessing(false);
     }
@@ -144,19 +194,36 @@ export default function AdminScreen() {
   const confirmDeleteVehicle = async (id) => {
     setActionProcessing(true);
     try {
-      const response = await fetch(`http://192.168.64.57:5000/vehicles/${id}`, {
+      const token = await user.getToken();
+      const response = await fetch(`http://192.168.156.57:5000/vehicles/${id}`, {
         method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
       });
+      
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Delete failed');
       }
-      alert('Vehicle deleted successfully');
+      
+      Alert.alert('Success', 'Vehicle deleted successfully');
       fetchVehicles(page, sortBy, searchText.trim());
     } catch (error) {
-      alert('Delete failed: ' + error.message);
+      console.error('Error deleting vehicle:', error);
+      Alert.alert('Error', error.message || 'Failed to delete vehicle');
     } finally {
       setActionProcessing(false);
+    }
+  };
+  
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      navigation.replace('UserHome');
+    } catch (err) {
+      console.error('Error signing out:', err);
+      Alert.alert('Error', 'Failed to sign out');
     }
   };
 
@@ -177,9 +244,33 @@ export default function AdminScreen() {
     </View>
   );
 
+  if (!isLoaded) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <ActivityIndicator size="large" color="#4a90e2" />
+      </View>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <Text style={styles.errorText}>{error || 'Access Denied'}</Text>
+        <TouchableOpacity style={styles.button} onPress={handleSignOut}>
+          <Text style={styles.buttonText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Admin Vehicle Search</Text>
+      <View style={styles.header}>
+        <Text style={styles.title}>Admin Dashboard</Text>
+        <TouchableOpacity onPress={handleSignOut} style={styles.signOutButton}>
+          <Text style={styles.signOutText}>Sign Out</Text>
+        </TouchableOpacity>
+      </View>
 
       <TextInput
         style={styles.input}
@@ -300,7 +391,36 @@ export default function AdminScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: '#fff' },
+  container: { 
+    flex: 1, 
+    padding: 16, 
+    backgroundColor: '#fff' 
+  },
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  signOutButton: {
+    padding: 8,
+    backgroundColor: '#f44336',
+    borderRadius: 4,
+  },
+  signOutText: {
+    color: 'white',
+    fontWeight: '500',
+  },
+  errorText: {
+    fontSize: 18,
+    color: '#f44336',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
   title: { fontSize: 24, fontWeight: 'bold', marginBottom: 16 },
   input: {
     borderColor: '#ccc',

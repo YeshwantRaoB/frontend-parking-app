@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, Button, Image, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, Image, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useNavigation } from '@react-navigation/native';
+import { useUser, useAuth } from '@clerk/clerk-expo';
 
 export default function RegistrationScreen() {
   const [licencePlate, setLicencePlate] = useState('');
@@ -11,7 +12,21 @@ export default function RegistrationScreen() {
   const [photo, setPhoto] = useState(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [userData, setUserData] = useState(null);
   const navigation = useNavigation();
+  const { user } = useUser();
+  const { getToken } = useAuth();
+
+  // Pre-fill user data if available
+  useEffect(() => {
+    if (user) {
+      setFullName(`${user.firstName || ''} ${user.lastName || ''}`.trim());
+      setUserData({
+        email: user.primaryEmailAddress?.emailAddress,
+        name: `${user.firstName || ''} ${user.lastName || ''}`.trim()
+      });
+    }
+  }, [user]);
 
   const pickImage = async () => {
     try {
@@ -55,12 +70,14 @@ export default function RegistrationScreen() {
     ) {
       Alert.alert('Validation error', 'Please fill all fields including the photo');
       return;
-    }
 
     setLoading(true);
     setMessage('');
 
     try {
+      const token = await getToken();
+      
+      // First upload the image
       const formData = new FormData();
       formData.append('image', {
         uri: photo,
@@ -68,11 +85,13 @@ export default function RegistrationScreen() {
         type: 'image/jpeg',
       });
 
-      // Replace <Your IP> with your backend IP address
-      const imageResponse = await fetch('http://192.168.64.57:5000/upload-image', {
+      const imageResponse = await fetch('http://192.168.156.57:5000/upload-image', {
         method: 'POST',
         body: formData,
-        headers: { 'Content-Type': 'multipart/form-data' },
+        headers: { 
+          'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${token}`,
+        },
       });
 
       const imageJson = await imageResponse.json();
@@ -83,26 +102,39 @@ export default function RegistrationScreen() {
 
       const photoUrl = imageJson.url;
 
-      const response = await fetch('http://192.168.64.57:5000/register', {
+      // Then register the vehicle
+      const response = await fetch('http://192.168.156.57:5000/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ licencePlate, fullName, branch, designation, photoUrl }),
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ 
+          licencePlate, 
+          fullName, 
+          branch, 
+          designation, 
+          photoUrl,
+          userId: user?.id // Link to Clerk user ID
+        }),
       });
 
       const json = await response.json();
 
       if (response.ok) {
-        setMessage('Registration successful!');
+        Alert.alert('Success', 'Vehicle registration successful!');
         setLicencePlate('');
-        setFullName('');
         setBranch('');
         setDesignation('');
         setPhoto(null);
+        // Keep the name field filled with user's name
+        setMessage('Registration successful! You can register another vehicle or go back.');
       } else {
-        setMessage(json.error || 'Registration failed');
+        throw new Error(json.error || 'Registration failed');
       }
     } catch (error) {
-      setMessage(error.message || 'Error connecting to server');
+      console.error('Registration error:', error);
+      Alert.alert('Error', error.message || 'An error occurred during registration');
     } finally {
       setLoading(false);
     }
@@ -111,75 +143,103 @@ export default function RegistrationScreen() {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Vehicle Registration</Text>
-
-      <Text style={styles.label}>Licence Plate Number</Text>
+      
+      {userData && (
+        <View style={styles.userInfo}>
+          <Text style={styles.userInfoText}>Logged in as: {userData.name}</Text>
+          <Text style={styles.userInfoText}>{userData.email}</Text>
+        </View>
+      )}
+      
+      {message ? <Text style={styles.message}>{message}</Text> : null}
+      
       <TextInput
         style={styles.input}
+        placeholder="Licence Plate Number"
         value={licencePlate}
         onChangeText={setLicencePlate}
-        placeholder="e.g. KA01AB1234"
+        autoCapitalize="characters"
       />
-
-      <Text style={styles.label}>Full Name</Text>
+      
       <TextInput
         style={styles.input}
+        placeholder="Full Name"
         value={fullName}
         onChangeText={setFullName}
-        placeholder="Your Name"
       />
-
-      <Text style={styles.label}>Branch</Text>
+      
       <TextInput
         style={styles.input}
+        placeholder="Branch/Department"
         value={branch}
         onChangeText={setBranch}
-        placeholder="CSE / IT / Mech / etc."
       />
-
-      <Text style={styles.label}>Designation</Text>
+      
       <TextInput
         style={styles.input}
+        placeholder="Designation"
         value={designation}
         onChangeText={setDesignation}
-        placeholder="Student / Teacher / Staff"
       />
-
-      <Text style={styles.label}>Photo</Text>
-      <TouchableOpacity onPress={pickImage} style={styles.photoButton}>
-        <Text style={styles.photoButtonText}>
-          {photo ? 'Change Photo' : 'Pick Photo'}
+      
+      <TouchableOpacity style={styles.uploadButton} onPress={pickImage} disabled={loading}>
+        <Text style={styles.uploadButtonText}>
+          {photo ? 'Change Photo' : 'Upload Vehicle Photo'}
         </Text>
       </TouchableOpacity>
-      {photo && <Image source={{ uri: photo }} style={styles.photo} />}
-
-      {loading ? (
-        <ActivityIndicator size="large" color="#0066cc" />
-      ) : (
-        <Button title="Register" onPress={handleSubmit} color="#0066cc" />
+      
+      {photo && (
+        <Image source={{ uri: photo }} style={styles.previewImage} />
       )}
-
-      {message ? <Text style={styles.message}>{message}</Text> : null}
-
-      <Button 
-        title="Go to Admin Screen" 
-        onPress={() => navigation.navigate('AdminLogin')} 
-        color="#888" 
-      />
+      
+      {loading ? (
+        <ActivityIndicator size="large" color="#4a90e2" style={styles.loader} />
+      ) : (
+        <TouchableOpacity 
+          style={[styles.submitButton, loading && styles.disabledButton]} 
+          onPress={handleSubmit}
+          disabled={loading}
+        >
+          <Text style={styles.submitButtonText}>
+            {loading ? 'Processing...' : 'Register Vehicle'}
+          </Text>
+        </TouchableOpacity>
+      )}
+      
+      <TouchableOpacity 
+        style={styles.backButton}
+        onPress={() => navigation.goBack()}
+        disabled={loading}
+      >
+        <Text style={styles.backButtonText}>Back to Home</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    padding: 18,
+    padding: 20,
     backgroundColor: '#f6f6f6',
     flexGrow: 1,
   },
   title: {
-    fontSize: 27,
+    fontSize: 24,
     fontWeight: 'bold',
-    marginVertical: 18,
+    marginBottom: 16,
     textAlign: 'center',
+    color: '#333',
+  },
+  userInfo: {
+    backgroundColor: '#e3f2fd',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  userInfoText: {
+    fontSize: 14,
+    color: '#1976d2',
+    marginBottom: 4,
   },
   label: {
     fontSize: 16,
@@ -188,33 +248,87 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: '#aaa',
-    borderRadius: 7,
-    padding: 10,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 14,
+    marginBottom: 16,
     fontSize: 16,
     backgroundColor: '#fff',
   },
-  photoButton: {
-    backgroundColor: '#0066cc',
-    padding: 10,
-    borderRadius: 7,
-    marginVertical: 8,
+  uploadButton: {
+    backgroundColor: '#4a90e2',
+    padding: 15,
+    borderRadius: 8,
     alignItems: 'center',
+    marginBottom: 16,
+    opacity: 1,
   },
-  photoButtonText: {
+  uploadButtonDisabled: {
+    opacity: 0.6,
+  },
+  uploadButtonText: {
     color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
-  photo: {
-    width: 110,
-    height: 110,
-    borderRadius: 7,
-    marginVertical: 8,
+  loader: {
+    marginVertical: 24,
   },
   message: {
     marginTop: 20,
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#006600',
     textAlign: 'center',
+    color: '#2e7d32',
+    backgroundColor: '#e8f5e9',
+    padding: 10,
+    borderRadius: 6,
   },
-});
+  loader: {
+    marginVertical: 24,
+  },
+  backButton: {
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    backgroundColor: '#fff',
+  },
+  backButtonText: {
+    color: '#333',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  submitButton: {
+    backgroundColor: '#4CAF50',
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 10,
+    marginBottom: 16,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  disabledButton: {
+    backgroundColor: '#a5d6a7',
+  },
+  submitButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  previewImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    marginBottom: 16,
+    resizeMode: 'cover',
+    borderWidth: 1,
+    borderColor: '#eee',
+  },
+})};

@@ -87,7 +87,7 @@ export default function LicensePlateScanner() {
 
   const searchVehicle = async (plateNumber) => {
     try {
-      const response = await fetch(`http://192.168.15.57:5000/vehicles?licencePlate=${encodeURIComponent(plateNumber)}`); // Replace with your backend IP
+      const response = await fetch(`http://192.168.156.57:5000/vehicles?licencePlate=${encodeURIComponent(plateNumber)}`); // Replace with your backend IP
       if (!response.ok) {
         throw new Error('Vehicle not found');
       }

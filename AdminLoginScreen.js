@@ -16,7 +16,7 @@ export default function AdminLoginScreen() {
     setLoading(true);
     try {
       // Replace <Your IP>
-      const response = await fetch('http://192.168.64.57:5000/admin/login', {
+      const response = await fetch('http://192.168.156.57:5000/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
