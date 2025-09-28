@@ -33,7 +33,7 @@ const BRANCH_OPTIONS = [
 
 // Branch code mapping for register number validation
 const BRANCH_CODES = {
-  'Automobile Engg.': 'AU',
+  'Automobile Engg.': 'AT',
   'Chemical Engg.': 'CH',
   'Civil Engg.': 'CE',
   'Computer Science & Engg.': 'CS',
@@ -49,6 +49,11 @@ const DESIGNATION_OPTIONS = ['Student', 'Staff'];
 // Staff position options
 const STAFF_POSITION_OPTIONS = ['HOD', 'Lecturer'];
 
+// Vehicle type options
+const VEHICLE_TYPE_OPTIONS = ['2 Wheeler', '4 Wheeler'];
+
+
+
 // Helper function to check if user is admin
 const isUserAdmin = (user) => {
   return user?.publicMetadata?.role === 'admin';
@@ -63,7 +68,7 @@ export default function AdminScreen() {
   const [sortBy, setSortBy] = useState('licencePlate');
   const [sortOrder, setSortOrder] = useState('asc');
   const [loading, setLoading] = useState(true);
-  
+
   // Simplified filtering states
   const [activeFilters, setActiveFilters] = useState({
     branch: '',
@@ -74,7 +79,7 @@ export default function AdminScreen() {
   });
   const [totalResults, setTotalResults] = useState(0);
   const [quickFilterActive, setQuickFilterActive] = useState('');
-  
+
   // Client-side data management
   const [allVehicles, setAllVehicles] = useState([]);
   const [filteredVehicles, setFilteredVehicles] = useState([]);
@@ -88,6 +93,7 @@ export default function AdminScreen() {
     registerNumber: '',
     staffPosition: '',
     vehicleName: '',
+    vehicleType: '',
   });
   const [actionProcessing, setActionProcessing] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -102,6 +108,8 @@ export default function AdminScreen() {
   const [showEditBranchModal, setShowEditBranchModal] = useState(false);
   const [showEditDesignationModal, setShowEditDesignationModal] = useState(false);
   const [showEditStaffPositionModal, setShowEditStaffPositionModal] = useState(false);
+  const [showEditVehicleTypeModal, setShowEditVehicleTypeModal] = useState(false);
+
 
   const navigation = useNavigation();
   const { signOut, getToken } = useAuth();
@@ -163,10 +171,10 @@ export default function AdminScreen() {
 
       const json = await response.json();
       setAllVehicles(json.vehicles || []);
-      
+
       // Apply initial filtering and sorting
       applyClientSideFiltering(json.vehicles || [], activeFilters, searchText, sortBy, sortOrder);
-      
+
     } catch (error) {
       console.error('Error fetching vehicles:', error);
       Alert.alert('Error', error.message || 'Failed to load vehicles');
@@ -204,8 +212,8 @@ export default function AdminScreen() {
 
     // Apply staff position filter
     if (filters.staffPosition) {
-      filtered = filtered.filter(vehicle => 
-        vehicle.staffPosition === filters.staffPosition || 
+      filtered = filtered.filter(vehicle =>
+        vehicle.staffPosition === filters.staffPosition ||
         vehicle.department === filters.staffPosition
       );
     }
@@ -214,10 +222,10 @@ export default function AdminScreen() {
     if (filters.dateRange) {
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      
+
       filtered = filtered.filter(vehicle => {
         const vehicleDate = new Date(vehicle.createdAt);
-        
+
         switch (filters.dateRange) {
           case 'today':
             return vehicleDate >= today;
@@ -241,7 +249,7 @@ export default function AdminScreen() {
     // Apply sorting
     filtered.sort((a, b) => {
       let aValue, bValue;
-      
+
       switch (sortField) {
         case 'fullName':
           aValue = a.fullName?.toLowerCase() || '';
@@ -322,7 +330,7 @@ export default function AdminScreen() {
 
   const applyQuickFilter = (filterType) => {
     let newFilters = { ...activeFilters };
-    
+
     switch (filterType) {
       case 'students':
         newFilters = { ...newFilters, designation: 'Student', staffPosition: '' };
@@ -342,7 +350,7 @@ export default function AdminScreen() {
       default:
         return;
     }
-    
+
     setQuickFilterActive(filterType);
     setActiveFilters(newFilters);
     setPage(1);
@@ -372,6 +380,7 @@ export default function AdminScreen() {
       registerNumber: vehicle.registerNumber || '',
       staffPosition: vehicle.staffPosition || vehicle.department || '',
       vehicleName: vehicle.vehicleName || '',
+      vehicleType: vehicle.vehicleType || '',
     });
     setModalVisible(true);
   };
@@ -387,6 +396,7 @@ export default function AdminScreen() {
       registerNumber: '',
       staffPosition: '',
       vehicleName: '',
+      vehicleType: '',
     });
   };
 
@@ -431,7 +441,7 @@ export default function AdminScreen() {
     if (!selectedVehicle) return;
 
     // Enhanced validation
-    if (!formData.licencePlate.trim() || !formData.fullName.trim() || !formData.branch.trim() || !formData.designation.trim() || !formData.vehicleName.trim()) {
+    if (!formData.licencePlate.trim() || !formData.fullName.trim() || !formData.branch.trim() || !formData.designation.trim() || !formData.vehicleName.trim() || !formData.vehicleType.trim()) {
       Alert.alert('Validation error', 'Please fill all required fields');
       return;
     }
@@ -603,69 +613,86 @@ export default function AdminScreen() {
     }
   };
 
-  const renderVehicle = ({ item }) => (
-    <View style={styles.itemContainer}>
-      <View style={styles.vehicleHeader}>
-        <Text style={styles.plate}>{item.licencePlate}</Text>
-        <Text style={styles.dateText}>
-          {new Date(item.createdAt).toLocaleDateString()}
-        </Text>
-      </View>
-      <Text style={styles.vehicleDetail}>Name: {item.fullName}</Text>
-      <Text style={styles.vehicleDetail}>Branch: {item.branch}</Text>
-      <Text style={styles.vehicleDetail}>Designation: {item.designation}</Text>
-      {item.registerNumber && (
-        <Text style={styles.vehicleDetail}>Register No: {item.registerNumber}</Text>
-      )}
-      {(item.staffPosition || item.department) && (
-        <Text style={styles.vehicleDetail}>Position: {item.staffPosition || item.department}</Text>
-      )}
-      {item.vehicleName && (
-        <Text style={styles.vehicleDetail}>Vehicle: {item.vehicleName}</Text>
-      )}
-      {/* Simplified Photo Section - Performance Optimized */}
-      <View style={styles.photoSection}>
-        <Text style={styles.photoSectionTitle}>📷 Photos</Text>
-        <View style={styles.photoButtonsContainer}>
-          {/* Vehicle Photo Button */}
-          {(item.vehiclePhotoUrl || (item.photoUrl && !item.ownerPhotoUrl)) ? (
-            <TouchableOpacity
-              style={styles.photoViewButton}
-              onPress={() => showPhoto(item.vehiclePhotoUrl || item.photoUrl, 'Vehicle Photo', `${item.licencePlate} - ${item.fullName}`)}
-            >
-              <Text style={styles.photoViewButtonText}>🚗 View Vehicle Photo</Text>
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.photoUnavailableButton}>
-              <Text style={styles.photoUnavailableText}>🚗 No Vehicle Photo</Text>
-            </View>
-          )}
+  const renderVehicle = ({ item }) => {
+    // Enhanced Debug: Log all vehicle data to identify owner photo issue
+    console.log('=== ADMIN SCREEN VEHICLE DATA ===');
+    console.log('License Plate:', item.licencePlate);
+    console.log('Vehicle Photo URL:', item.vehiclePhotoUrl);
+    console.log('Owner Photo URL:', item.ownerPhotoUrl);
+    console.log('Legacy Photo URL:', item.photoUrl);
+    console.log('All item keys:', Object.keys(item));
+    console.log('Owner photo exists?', !!item.ownerPhotoUrl);
+    console.log('Owner photo type:', typeof item.ownerPhotoUrl);
+    console.log('==================================');
 
-          {/* Owner Photo Button */}
-          {item.ownerPhotoUrl ? (
-            <TouchableOpacity
-              style={styles.photoViewButton}
-              onPress={() => showPhoto(item.ownerPhotoUrl, 'Owner Photo', `${item.licencePlate} - ${item.fullName}`)}
-            >
-              <Text style={styles.photoViewButtonText}>👤 View Owner Photo</Text>
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.photoUnavailableButton}>
-              <Text style={styles.photoUnavailableText}>👤 No Owner Photo</Text>
-            </View>
-          )}
+    return (
+      <View style={styles.itemContainer}>
+        <View style={styles.vehicleHeader}>
+          <Text style={styles.plate}>{item.licencePlate}</Text>
+          <Text style={styles.dateText}>
+            {new Date(item.createdAt).toLocaleDateString()}
+          </Text>
+        </View>
+        <Text style={styles.vehicleDetail}>Name: {item.fullName}</Text>
+        <Text style={styles.vehicleDetail}>Branch: {item.branch}</Text>
+        <Text style={styles.vehicleDetail}>Designation: {item.designation}</Text>
+        {item.registerNumber && (
+          <Text style={styles.vehicleDetail}>Register No: {item.registerNumber}</Text>
+        )}
+        {(item.staffPosition || item.department) && (
+          <Text style={styles.vehicleDetail}>Position: {item.staffPosition || item.department}</Text>
+        )}
+        {item.vehicleName && (
+          <Text style={styles.vehicleDetail}>Vehicle: {item.vehicleName}</Text>
+        )}
+        {item.vehicleType && (
+          <Text style={styles.vehicleDetail}>Type: {item.vehicleType}</Text>
+        )}
+
+        {/* Photo Section - Button Only */}
+        <View style={styles.photoSection}>
+          <Text style={styles.photoSectionTitle}>📷 Photos</Text>
+          <View style={styles.photoButtonsContainer}>
+            {/* Vehicle Photo Button */}
+            {(item.vehiclePhotoUrl || (item.photoUrl && !item.ownerPhotoUrl)) ? (
+              <TouchableOpacity
+                style={styles.photoViewButton}
+                onPress={() => showPhoto(item.vehiclePhotoUrl || item.photoUrl, 'Vehicle Photo', `${item.licencePlate} - ${item.fullName}`)}
+              >
+                <Text style={styles.photoViewButtonText}>🚗 View Vehicle Photo</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.photoUnavailableButton}>
+                <Text style={styles.photoUnavailableText}>🚗 No Vehicle Photo</Text>
+              </View>
+            )}
+
+            {/* Owner Photo Button */}
+            {item.ownerPhotoUrl ? (
+              <TouchableOpacity
+                style={styles.photoViewButton}
+                onPress={() => showPhoto(item.ownerPhotoUrl, 'Owner Photo', `${item.licencePlate} - ${item.fullName}`)}
+              >
+                <Text style={styles.photoViewButtonText}>👤 View Owner Photo</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.photoUnavailableButton}>
+                <Text style={styles.photoUnavailableText}>👤 No Owner Photo</Text>
+              </View>
+            )}
+          </View>
+        </View>
+        <View style={styles.itemButtons}>
+          <TouchableOpacity onPress={() => openEditModal(item)} style={styles.editBtn}>
+            <Text style={styles.editText}>Edit</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => deleteVehicle(item)} style={styles.deleteBtn}>
+            <Text style={styles.deleteText}>Delete</Text>
+          </TouchableOpacity>
         </View>
       </View>
-      <View style={styles.itemButtons}>
-        <TouchableOpacity onPress={() => openEditModal(item)} style={styles.editBtn}>
-          <Text style={styles.editText}>Edit</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => deleteVehicle(item)} style={styles.deleteBtn}>
-          <Text style={styles.deleteText}>Delete</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+    );
+  };
 
   if (!isLoaded) {
     return (
@@ -696,7 +723,7 @@ export default function AdminScreen() {
         <View style={styles.header}>
           <Text style={styles.title}>Admin Dashboard</Text>
         </View>
-        
+
         <View style={styles.actionButtons}>
           <TouchableOpacity onPress={() => navigation.navigate('Registration')} style={styles.registerButton}>
             <Text style={styles.registerText}>+ Vehicle</Text>
@@ -822,7 +849,7 @@ export default function AdminScreen() {
           <View style={styles.emptyContainer}>
             <Text style={styles.noRecords}>No vehicles found.</Text>
             <Text style={styles.noRecordsSubtext}>
-              {getActiveFilterCount() > 0 ? 'Try adjusting your filters' : 'No vehicles registered yet'}
+              {quickFilterActive ? 'Try clearing the active filter' : 'No vehicles registered yet'}
             </Text>
           </View>
         ) : (
@@ -919,7 +946,7 @@ export default function AdminScreen() {
                 </TouchableOpacity>
               </View>
             </View>
-            
+
             {/* Photo with loading indicator */}
             {selectedPhoto && (
               <View style={styles.photoContainer}>
@@ -933,7 +960,7 @@ export default function AdminScreen() {
                 />
               </View>
             )}
-            
+
             {/* Photo Info Footer */}
             <View style={styles.photoModalFooter}>
               <Text style={styles.photoModalFooterText}>
@@ -968,6 +995,18 @@ export default function AdminScreen() {
               value={formData.vehicleName}
               onChangeText={(val) => handleFormChange('vehicleName', val)}
             />
+
+            {/* Vehicle Type Dropdown */}
+            <TouchableOpacity
+              style={styles.editDropdownButton}
+              onPress={() => setShowEditVehicleTypeModal(true)}
+            >
+              <Text style={[styles.editDropdownText, !formData.vehicleType && styles.editPlaceholderText]}>
+                {formData.vehicleType || 'Select Vehicle Type'}
+              </Text>
+              <Text style={styles.editDropdownArrow}>▼</Text>
+            </TouchableOpacity>
+
             {/* Branch/Department Dropdown */}
             <TouchableOpacity
               style={styles.editDropdownButton}
@@ -1006,6 +1045,8 @@ export default function AdminScreen() {
                   Format: 103 + Branch Code + Year + Roll Number{'\n'}
                   Example: 103CS23062 (103=College, CS=Computer Science, 23=Year 2023, 062=Roll No.)
                 </Text>
+
+
               </View>
             )}
 
@@ -1072,7 +1113,17 @@ export default function AdminScreen() {
         onSelect={(value) => handleFormChange('staffPosition', value)}
         title="Select Staff Position"
       />
-      
+
+      <EditDropdownModal
+        visible={showEditVehicleTypeModal}
+        onClose={() => setShowEditVehicleTypeModal(false)}
+        options={VEHICLE_TYPE_OPTIONS}
+        onSelect={(value) => handleFormChange('vehicleType', value)}
+        title="Select Vehicle Type"
+      />
+
+
+
       <Footer />
     </View>
   );
@@ -1208,7 +1259,7 @@ const styles = StyleSheet.create({
     color: '#2c3e50',
     textAlign: 'center',
   },
-  
+
   // Simplified Search Styles
   compactSearchInput: {
     flex: 1,
@@ -1224,7 +1275,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 10,
     borderBottomRightRadius: 10,
   },
-  
+
   compactQuickFilters: {
     marginBottom: 8,
     flexGrow: 0,
@@ -1243,7 +1294,7 @@ const styles = StyleSheet.create({
     color: '#495057',
     fontWeight: '500',
   },
-  
+
   compactActiveFilters: {
     marginBottom: 8,
   },
@@ -1271,7 +1322,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginLeft: 4,
   },
-  
+
   compactSortContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1302,7 +1353,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '500',
   },
-  
+
   // Content Styles
   loadingContainer: {
     flex: 1,
@@ -1369,161 +1420,8 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#fff',
   },
-  filterButton: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e9ecef',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  filterButtonActive: {
-    backgroundColor: '#4a90e2',
-    borderColor: '#4a90e2',
-  },
-  filterButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#495057',
-  },
-  // Quick Filters Styles
-  quickFiltersContainer: {
-    backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 12,
-    marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  quickFiltersLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#495057',
-    marginBottom: 10,
-  },
-  quickFiltersScroll: {
-    flexGrow: 0,
-  },
-  quickFilterChip: {
-    backgroundColor: '#f8f9fa',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: '#e9ecef',
-  },
-  quickFilterChipActive: {
-    backgroundColor: '#4a90e2',
-    borderColor: '#4a90e2',
-  },
-  quickFilterText: {
-    fontSize: 12,
-    color: '#495057',
-    fontWeight: '500',
-  },
-  quickFilterTextActive: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-
-  // Active Filters Styles
-  activeFiltersContainer: {
-    backgroundColor: '#fff3cd',
-    padding: 15,
-    borderRadius: 12,
-    marginBottom: 15,
-    borderLeftWidth: 4,
-    borderLeftColor: '#ffc107',
-  },
-  activeFiltersHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  activeFiltersLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#856404',
-  },
-  clearAllButton: {
-    backgroundColor: '#ffc107',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 15,
-  },
-  clearAllText: {
-    fontSize: 12,
-    color: '#fff',
-    fontWeight: '600',
-  },
-  activeFiltersRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  activeFilterChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 15,
-    marginRight: 8,
-    marginBottom: 5,
-    borderWidth: 1,
-    borderColor: '#ffc107',
-  },
-  activeFilterText: {
-    fontSize: 12,
-    color: '#856404',
-    fontWeight: '500',
-    marginRight: 6,
-  },
-  activeFilterRemove: {
-    fontSize: 12,
-    color: '#dc3545',
-    fontWeight: 'bold',
-  },
-
-  // Enhanced Sort Styles
-  sortContainer: {
-    backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 12,
-    marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  sortHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  sortLabel: {
-    fontWeight: 'bold',
-    fontSize: 16,
-    color: '#333',
-  },
-  resultsCount: {
-    fontSize: 14,
-    color: '#6c757d',
-    fontWeight: '500',
-  },
+  // Unused filter button styles removed
+  // Simplified filter styles - unused complex styles removed
   sortScrollView: {
     flexGrow: 0,
   },
@@ -1592,7 +1490,7 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 3,
   },
-  // Simplified Photo Section Styles - Performance Optimized
+  // Photo Section Styles - Button Only
   photoSection: {
     marginTop: 12,
     marginBottom: 8,

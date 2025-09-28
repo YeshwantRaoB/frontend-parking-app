@@ -36,6 +36,11 @@ const DESIGNATION_OPTIONS = ['Student', 'Staff'];
 // Staff position options
 const STAFF_POSITION_OPTIONS = ['HOD', 'Lecturer'];
 
+// Vehicle type options
+const VEHICLE_TYPE_OPTIONS = ['2 Wheeler', '4 Wheeler'];
+
+
+
 export default function RegistrationScreen() {
   const [licencePlate, setLicencePlate] = useState('');
   const [fullName, setFullName] = useState('');
@@ -44,6 +49,8 @@ export default function RegistrationScreen() {
   const [registerNumber, setRegisterNumber] = useState('');
   const [staffPosition, setStaffPosition] = useState('');
   const [vehicleName, setVehicleName] = useState('');
+  const [vehicleType, setVehicleType] = useState('');
+
   const [vehiclePhoto, setVehiclePhoto] = useState(null);
   const [ownerPhoto, setOwnerPhoto] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -54,6 +61,8 @@ export default function RegistrationScreen() {
   const [showBranchModal, setShowBranchModal] = useState(false);
   const [showDesignationModal, setShowDesignationModal] = useState(false);
   const [showStaffPositionModal, setShowStaffPositionModal] = useState(false);
+  const [showVehicleTypeModal, setShowVehicleTypeModal] = useState(false);
+
 
   const navigation = useNavigation();
   const { user } = useUser();
@@ -133,7 +142,7 @@ export default function RegistrationScreen() {
 
   const handleSubmit = async () => {
     // Validation
-    if (!licencePlate.trim() || !fullName.trim() || !branch.trim() || !designation.trim() || !vehicleName.trim() || !vehiclePhoto || !ownerPhoto) {
+    if (!licencePlate.trim() || !fullName.trim() || !branch.trim() || !designation.trim() || !vehicleName.trim() || !vehicleType.trim() || !vehiclePhoto || !ownerPhoto) {
       Alert.alert('Validation error', 'Please fill all required fields and upload both photos');
       return;
     }
@@ -226,6 +235,7 @@ export default function RegistrationScreen() {
         branch: branch.trim(),
         designation: designation.trim(),
         vehicleName: vehicleName.trim(),
+        vehicleType: vehicleType.trim(),
         vehiclePhotoUrl: vehicleImageJson.url,
         ownerPhotoUrl: ownerImageJson.url,
         // Also try alternative field names the backend might expect
@@ -265,6 +275,7 @@ export default function RegistrationScreen() {
         setRegisterNumber('');
         setStaffPosition('');
         setVehicleName('');
+        setVehicleType('');
         setVehiclePhoto(null);
         setOwnerPhoto(null);
         setMessage('Registration successful! You can register another vehicle or go back.');
@@ -330,6 +341,17 @@ export default function RegistrationScreen() {
         onChangeText={setVehicleName}
       />
 
+      {/* Vehicle Type Dropdown */}
+      <TouchableOpacity
+        style={styles.dropdownButton}
+        onPress={() => setShowVehicleTypeModal(true)}
+      >
+        <Text style={[styles.dropdownText, !vehicleType && styles.placeholderText]}>
+          {vehicleType || 'Select Vehicle Type'}
+        </Text>
+        <Text style={styles.dropdownArrow}>▼</Text>
+      </TouchableOpacity>
+
       {/* Branch/Department Dropdown */}
       <TouchableOpacity
         style={styles.dropdownButton}
@@ -356,6 +378,7 @@ export default function RegistrationScreen() {
       {designation === 'Student' && (
         <View style={styles.conditionalSection}>
           <Text style={styles.sectionLabel}>Student Information</Text>
+
           <TextInput
             style={styles.input}
             placeholder={`Register Number (e.g., 103${BRANCH_CODES[branch] || 'XX'}23062)`}
@@ -368,6 +391,8 @@ export default function RegistrationScreen() {
             Format: 103 + Branch Code + Year + Roll Number{'\n'}
             Example: 103CS23062 (103=College, CS=Computer Science, 23=Year 2023, 062=Roll No.)
           </Text>
+
+
         </View>
       )}
 
@@ -445,6 +470,16 @@ export default function RegistrationScreen() {
         onSelect={setStaffPosition}
         title="Select Staff Position"
       />
+
+      <DropdownModal
+        visible={showVehicleTypeModal}
+        onClose={() => setShowVehicleTypeModal(false)}
+        options={VEHICLE_TYPE_OPTIONS}
+        onSelect={setVehicleType}
+        title="Select Vehicle Type"
+      />
+
+
 
       {loading ? (
         <View style={styles.loadingContainer}>

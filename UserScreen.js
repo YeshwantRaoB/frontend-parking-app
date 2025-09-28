@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
-  FlatList, 
-  ActivityIndicator, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  FlatList,
+  ActivityIndicator,
   Alert,
   Modal,
   TextInput,
@@ -31,7 +31,7 @@ const BRANCH_OPTIONS = [
 
 // Branch code mapping for register number validation
 const BRANCH_CODES = {
-  'Automobile Engg.': 'AU',
+  'Automobile Engg.': 'AT',
   'Chemical Engg.': 'CH',
   'Civil Engg.': 'CE',
   'Computer Science & Engg.': 'CS',
@@ -46,6 +46,11 @@ const DESIGNATION_OPTIONS = ['Student', 'Staff'];
 
 // Staff position options
 const STAFF_POSITION_OPTIONS = ['HOD', 'Lecturer'];
+
+// Vehicle type options
+const VEHICLE_TYPE_OPTIONS = ['2 Wheeler', '4 Wheeler'];
+
+
 
 export default function UserScreen() {
   const navigation = useNavigation();
@@ -63,6 +68,7 @@ export default function UserScreen() {
     registerNumber: '',
     staffPosition: '',
     vehicleName: '',
+    vehicleType: '',
   });
   const [updating, setUpdating] = useState(false);
 
@@ -70,6 +76,11 @@ export default function UserScreen() {
   const [showBranchModal, setShowBranchModal] = useState(false);
   const [showDesignationModal, setShowDesignationModal] = useState(false);
   const [showStaffPositionModal, setShowStaffPositionModal] = useState(false);
+  const [showVehicleTypeModal, setShowVehicleTypeModal] = useState(false);
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState(null);
+  const [selectedPhotoInfo, setSelectedPhotoInfo] = useState(null);
+
 
   useEffect(() => {
     fetchMyVehicles();
@@ -79,7 +90,7 @@ export default function UserScreen() {
     try {
       setLoading(true);
       const token = await getToken();
-      
+
       if (!token) {
         throw new Error('No authentication token available');
       }
@@ -126,6 +137,7 @@ export default function UserScreen() {
       registerNumber: vehicle.registerNumber || '',
       staffPosition: vehicle.staffPosition || vehicle.department || '',
       vehicleName: vehicle.vehicleName || '',
+      vehicleType: vehicle.vehicleType || '',
     });
     setModalVisible(true);
   };
@@ -141,11 +153,18 @@ export default function UserScreen() {
       registerNumber: '',
       staffPosition: '',
       vehicleName: '',
+      vehicleType: '',
     });
   };
 
   const handleFormChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const showPhoto = (photoUrl, photoType = 'Photo', vehicleInfo = '') => {
+    setSelectedPhoto(photoUrl);
+    setSelectedPhotoInfo({ type: photoType, vehicle: vehicleInfo });
+    setShowPhotoModal(true);
   };
 
   // Dropdown component (same as registration screen)
@@ -183,7 +202,7 @@ export default function UserScreen() {
     if (!selectedVehicle) return;
 
     // Validation
-    if (!formData.licencePlate.trim() || !formData.fullName.trim() || !formData.branch.trim() || !formData.designation.trim() || !formData.vehicleName.trim()) {
+    if (!formData.licencePlate.trim() || !formData.fullName.trim() || !formData.branch.trim() || !formData.designation.trim() || !formData.vehicleName.trim() || !formData.vehicleType.trim()) {
       Alert.alert('Validation error', 'Please fill all required fields');
       return;
     }
@@ -214,24 +233,24 @@ export default function UserScreen() {
         return;
       }
     }
-    
+
     setUpdating(true);
     try {
       const token = await getToken();
       const response = await fetch(`${API_BASE_URL}/my-vehicles/${selectedVehicle._id}`, {
         method: 'PATCH',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify(formData),
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Update failed');
       }
-      
+
       Alert.alert('Success', 'Vehicle updated successfully');
       closeModal();
       fetchMyVehicles();
@@ -243,43 +262,82 @@ export default function UserScreen() {
     }
   };
 
-  const renderVehicle = ({ item }) => (
-    <View style={styles.vehicleCard}>
-      <View style={styles.imageContainer}>
-        {item.vehiclePhotoUrl && (
-          <Image source={{ uri: item.vehiclePhotoUrl }} style={styles.vehicleImage} />
-        )}
-        {item.ownerPhotoUrl && (
-          <Image source={{ uri: item.ownerPhotoUrl }} style={styles.ownerImage} />
-        )}
-        {/* Legacy support */}
-        {item.photoUrl && !item.vehiclePhotoUrl && (
-          <Image source={{ uri: item.photoUrl }} style={styles.vehicleImage} />
-        )}
+  const renderVehicle = ({ item }) => {
+    // Enhanced Debug: Log all vehicle data to identify owner photo issue
+    console.log('=== USER SCREEN VEHICLE DATA ===');
+    console.log('License Plate:', item.licencePlate);
+    console.log('Vehicle Photo URL:', item.vehiclePhotoUrl);
+    console.log('Owner Photo URL:', item.ownerPhotoUrl);
+    console.log('Legacy Photo URL:', item.photoUrl);
+    console.log('All item keys:', Object.keys(item));
+    console.log('Full item data:', JSON.stringify(item, null, 2));
+    console.log('Owner photo exists?', !!item.ownerPhotoUrl);
+    console.log('Owner photo type:', typeof item.ownerPhotoUrl);
+    console.log('================================');
+
+    return (
+      <View style={styles.vehicleCard}>
+        {/* Photo Buttons Section */}
+        <View style={styles.photoButtonsSection}>
+          <Text style={styles.photoSectionTitle}>📷 Photos</Text>
+          <View style={styles.photoButtonsContainer}>
+            {/* Vehicle Photo Button */}
+            {(item.vehiclePhotoUrl || (item.photoUrl && !item.ownerPhotoUrl)) ? (
+              <TouchableOpacity
+                style={styles.photoButton}
+                onPress={() => showPhoto(item.vehiclePhotoUrl || item.photoUrl, 'Vehicle Photo', `${item.licencePlate} - ${item.fullName}`)}
+              >
+                <Text style={styles.photoButtonText}>🚗 View Vehicle Photo</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.noPhotoButton}>
+                <Text style={styles.noPhotoButtonText}>🚗 No Vehicle Photo</Text>
+              </View>
+            )}
+
+            {/* Owner Photo Button */}
+            {item.ownerPhotoUrl ? (
+              <TouchableOpacity
+                style={styles.photoButton}
+                onPress={() => showPhoto(item.ownerPhotoUrl, 'Owner Photo', `${item.licencePlate} - ${item.fullName}`)}
+              >
+                <Text style={styles.photoButtonText}>👤 View Owner Photo</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.noPhotoButton}>
+                <Text style={styles.noPhotoButtonText}>👤 No Owner Photo</Text>
+              </View>
+            )}
+          </View>
+        </View>
+        <View style={styles.vehicleInfo}>
+          <Text style={styles.licensePlate}>{item.licencePlate}</Text>
+          <Text style={styles.vehicleDetail}>Name: {item.fullName}</Text>
+          {item.vehicleName && (
+            <Text style={styles.vehicleDetail}>Vehicle: {item.vehicleName}</Text>
+          )}
+          {item.vehicleType && (
+            <Text style={styles.vehicleDetail}>Type: {item.vehicleType}</Text>
+          )}
+          <Text style={styles.vehicleDetail}>Branch: {item.branch}</Text>
+          <Text style={styles.vehicleDetail}>Designation: {item.designation}</Text>
+          {item.registerNumber && (
+            <Text style={styles.vehicleDetail}>Register No: {item.registerNumber}</Text>
+          )}
+          {(item.staffPosition || item.department) && (
+            <Text style={styles.vehicleDetail}>Position: {item.staffPosition || item.department}</Text>
+          )}
+
+          <TouchableOpacity
+            style={styles.editButton}
+            onPress={() => openEditModal(item)}
+          >
+            <Text style={styles.editButtonText}>Edit Details</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-      <View style={styles.vehicleInfo}>
-        <Text style={styles.licensePlate}>{item.licencePlate}</Text>
-        <Text style={styles.vehicleDetail}>Name: {item.fullName}</Text>
-        {item.vehicleName && (
-          <Text style={styles.vehicleDetail}>Vehicle: {item.vehicleName}</Text>
-        )}
-        <Text style={styles.vehicleDetail}>Branch: {item.branch}</Text>
-        <Text style={styles.vehicleDetail}>Designation: {item.designation}</Text>
-        {item.registerNumber && (
-          <Text style={styles.vehicleDetail}>Register No: {item.registerNumber}</Text>
-        )}
-        {(item.staffPosition || item.department) && (
-          <Text style={styles.vehicleDetail}>Position: {item.staffPosition || item.department}</Text>
-        )}
-        <TouchableOpacity 
-          style={styles.editButton}
-          onPress={() => openEditModal(item)}
-        >
-          <Text style={styles.editButtonText}>Edit Details</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -287,7 +345,7 @@ export default function UserScreen() {
         <Text style={styles.welcomeText}>
           Welcome, {user?.firstName || 'User'}!
         </Text>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.signOutButton}
           onPress={handleSignOut}
         >
@@ -296,7 +354,7 @@ export default function UserScreen() {
       </View>
 
       <Text style={styles.sectionTitle}>My Registered Vehicles</Text>
-      
+
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#4a90e2" />
@@ -305,7 +363,7 @@ export default function UserScreen() {
       ) : vehicles.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>No vehicles registered yet</Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.registerButton}
             onPress={() => navigation.navigate('Registration')}
           >
@@ -321,7 +379,7 @@ export default function UserScreen() {
             style={styles.vehiclesList}
             showsVerticalScrollIndicator={false}
           />
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.addButton}
             onPress={() => navigation.navigate('Registration')}
           >
@@ -355,6 +413,18 @@ export default function UserScreen() {
               value={formData.vehicleName}
               onChangeText={(val) => handleFormChange('vehicleName', val)}
             />
+
+            {/* Vehicle Type Dropdown */}
+            <TouchableOpacity
+              style={styles.dropdownButton}
+              onPress={() => setShowVehicleTypeModal(true)}
+            >
+              <Text style={[styles.dropdownText, !formData.vehicleType && styles.placeholderText]}>
+                {formData.vehicleType || 'Select Vehicle Type'}
+              </Text>
+              <Text style={styles.dropdownArrow}>▼</Text>
+            </TouchableOpacity>
+
             {/* Branch/Department Dropdown */}
             <TouchableOpacity
               style={styles.dropdownButton}
@@ -393,6 +463,8 @@ export default function UserScreen() {
                   Format: 103 + Branch Code + Year + Roll Number{'\n'}
                   Example: 103CS23062 (103=College, CS=Computer Science, 23=Year 2023, 062=Roll No.)
                 </Text>
+
+
               </View>
             )}
 
@@ -460,7 +532,46 @@ export default function UserScreen() {
         onSelect={(value) => handleFormChange('staffPosition', value)}
         title="Select Staff Position"
       />
-      
+
+      <DropdownModal
+        visible={showVehicleTypeModal}
+        onClose={() => setShowVehicleTypeModal(false)}
+        options={VEHICLE_TYPE_OPTIONS}
+        onSelect={(value) => handleFormChange('vehicleType', value)}
+        title="Select Vehicle Type"
+      />
+
+
+
+      {/* Photo Modal */}
+      <Modal visible={showPhotoModal} animationType="fade" transparent={true}>
+        <View style={styles.photoModalOverlay}>
+          <View style={styles.photoModalContainer}>
+            <View style={styles.photoModalHeader}>
+              <Text style={styles.photoModalTitle}>
+                {selectedPhotoInfo?.type} - {selectedPhotoInfo?.vehicle}
+              </Text>
+              <TouchableOpacity
+                style={styles.photoModalCloseButton}
+                onPress={() => setShowPhotoModal(false)}
+              >
+                <Text style={styles.photoModalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.photoModalImageContainer}>
+              {selectedPhoto && (
+                <Image
+                  source={{ uri: selectedPhoto }}
+                  style={styles.photoModalImage}
+                  resizeMode="contain"
+                  onError={(error) => console.log('Photo modal load error:', error)}
+                />
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <Footer />
     </View>
   );
@@ -555,22 +666,106 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: '#28a745',
   },
-  imageContainer: {
+  photoButtonsSection: {
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  photoSectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#495057',
+    marginBottom: 8,
+  },
+  photoButtonsContainer: {
     flexDirection: 'row',
-    marginBottom: 10,
+    gap: 8,
+    flexWrap: 'wrap',
   },
-  vehicleImage: {
-    width: '60%',
-    height: 120,
+  photoButton: {
+    backgroundColor: '#4a90e2',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 8,
-    marginRight: 8,
-    resizeMode: 'cover',
+    shadowColor: '#4a90e2',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 2,
+    flex: 1,
+    minWidth: 120,
   },
-  ownerImage: {
-    width: '35%',
-    height: 120,
+  photoButtonText: {
+    fontSize: 12,
+    color: '#fff',
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  noPhotoButton: {
+    backgroundColor: '#f8f9fa',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 8,
-    resizeMode: 'cover',
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+    flex: 1,
+    minWidth: 120,
+  },
+  noPhotoButtonText: {
+    fontSize: 12,
+    color: '#6c757d',
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  // Photo Modal Styles
+  photoModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  photoModalContainer: {
+    width: '90%',
+    height: '80%',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  photoModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#f8f9fa',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e9ecef',
+  },
+  photoModalTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#212529',
+    flex: 1,
+  },
+  photoModalCloseButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  photoModalCloseText: {
+    fontSize: 16,
+    color: '#6c757d',
+    fontWeight: 'bold',
+  },
+  photoModalImageContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  photoModalImage: {
+    width: '100%',
+    height: '100%',
   },
   vehicleInfo: {
     flex: 1,
