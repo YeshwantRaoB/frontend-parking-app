@@ -3,6 +3,7 @@ import { View, Text, TextInput, Image, TouchableOpacity, StyleSheet, ScrollView,
 import * as ImagePicker from 'expo-image-picker';
 import { useNavigation } from '@react-navigation/native';
 import { useUser, useAuth } from '@clerk/clerk-expo';
+import { API_BASE_URL } from './config';
 
 export default function RegistrationScreen() {
   const [licencePlate, setLicencePlate] = useState('');
@@ -65,11 +66,11 @@ export default function RegistrationScreen() {
       !fullName.trim() ||
       !branch.trim() ||
       !designation.trim() ||
-      !photo ||
-      photo.length === 0
+      !photo
     ) {
       Alert.alert('Validation error', 'Please fill all fields including the photo');
       return;
+    }
 
     setLoading(true);
     setMessage('');
@@ -85,7 +86,7 @@ export default function RegistrationScreen() {
         type: 'image/jpeg',
       });
 
-      const imageResponse = await fetch('http://192.168.156.57:5000/upload-image', {
+      const imageResponse = await fetch(`${API_BASE_URL}/upload-image`, {
         method: 'POST',
         body: formData,
         headers: { 
@@ -103,7 +104,7 @@ export default function RegistrationScreen() {
       const photoUrl = imageJson.url;
 
       // Then register the vehicle
-      const response = await fetch('http://192.168.156.57:5000/register', {
+      const response = await fetch(`${API_BASE_URL}/register`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -142,7 +143,17 @@ export default function RegistrationScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Vehicle Registration</Text>
+      <View style={styles.header}>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+          disabled={loading}
+        >
+          <Text style={styles.backButtonText}>← Back</Text>
+        </TouchableOpacity>
+        <Text style={styles.title}>Vehicle Registration</Text>
+        <View style={{ width: 60 }} />
+      </View>
       
       {userData && (
         <View style={styles.userInfo}>
@@ -155,7 +166,7 @@ export default function RegistrationScreen() {
       
       <TextInput
         style={styles.input}
-        placeholder="Licence Plate Number"
+        placeholder="License Plate Number"
         value={licencePlate}
         onChangeText={setLicencePlate}
         autoCapitalize="characters"
@@ -177,14 +188,14 @@ export default function RegistrationScreen() {
       
       <TextInput
         style={styles.input}
-        placeholder="Designation"
+        placeholder="Designation (Student/Teacher/Staff)"
         value={designation}
         onChangeText={setDesignation}
       />
       
       <TouchableOpacity style={styles.uploadButton} onPress={pickImage} disabled={loading}>
         <Text style={styles.uploadButtonText}>
-          {photo ? 'Change Photo' : 'Upload Vehicle Photo'}
+          {photo ? '📷 Change Photo' : '📷 Upload Vehicle Photo'}
         </Text>
       </TouchableOpacity>
       
@@ -193,7 +204,10 @@ export default function RegistrationScreen() {
       )}
       
       {loading ? (
-        <ActivityIndicator size="large" color="#4a90e2" style={styles.loader} />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#4a90e2" />
+          <Text style={styles.loadingText}>Processing registration...</Text>
+        </View>
       ) : (
         <TouchableOpacity 
           style={[styles.submitButton, loading && styles.disabledButton]} 
@@ -201,18 +215,10 @@ export default function RegistrationScreen() {
           disabled={loading}
         >
           <Text style={styles.submitButtonText}>
-            {loading ? 'Processing...' : 'Register Vehicle'}
+            Register Vehicle
           </Text>
         </TouchableOpacity>
       )}
-      
-      <TouchableOpacity 
-        style={styles.backButton}
-        onPress={() => navigation.goBack()}
-        disabled={loading}
-      >
-        <Text style={styles.backButtonText}>Back to Home</Text>
-      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -220,104 +226,62 @@ export default function RegistrationScreen() {
 const styles = StyleSheet.create({
   container: {
     padding: 20,
-    backgroundColor: '#f6f6f6',
+    backgroundColor: '#f5f5f5',
     flexGrow: 1,
+    paddingTop: 50,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 16,
-    textAlign: 'center',
-    color: '#333',
-  },
-  userInfo: {
-    backgroundColor: '#e3f2fd',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-  userInfoText: {
-    fontSize: 14,
-    color: '#1976d2',
-    marginBottom: 4,
-  },
-  label: {
-    fontSize: 16,
-    marginTop: 14,
-    marginBottom: 7,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 14,
-    marginBottom: 16,
-    fontSize: 16,
-    backgroundColor: '#fff',
-  },
-  uploadButton: {
-    backgroundColor: '#4a90e2',
-    padding: 15,
-    borderRadius: 8,
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
-    opacity: 1,
-  },
-  uploadButtonDisabled: {
-    opacity: 0.6,
-  },
-  uploadButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  loader: {
-    marginVertical: 24,
-  },
-  message: {
-    marginTop: 20,
-    fontSize: 16,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    color: '#2e7d32',
-    backgroundColor: '#e8f5e9',
-    padding: 10,
-    borderRadius: 6,
-  },
-  loader: {
-    marginVertical: 24,
+    marginBottom: 20,
   },
   backButton: {
-    padding: 12,
+    padding: 10,
+    backgroundColor: '#fff',
     borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 10,
     borderWidth: 1,
     borderColor: '#ddd',
-    backgroundColor: '#fff',
   },
   backButtonText: {
     color: '#333',
     fontSize: 16,
     fontWeight: '500',
   },
-  submitButton: {
-    backgroundColor: '#4CAF50',
-    padding: 16,
-    borderRadius: 8,
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
+    textAlign: 'center',
+  },
+  userInfo: {
+    backgroundColor: '#e3f2fd',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 20,
+  },
+  userInfoText: {
+    fontSize: 14,
+    color: '#1976d2',
+    marginBottom: 4,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 15,
+    fontSize: 16,
+    backgroundColor: '#fff',
+  },
+  uploadButton: {
+    backgroundColor: '#4a90e2',
+    padding: 15,
+    borderRadius: 10,
     alignItems: 'center',
-    marginTop: 10,
-    marginBottom: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    marginBottom: 15,
   },
-  disabledButton: {
-    backgroundColor: '#a5d6a7',
-  },
-  submitButtonText: {
+  uploadButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
@@ -325,10 +289,50 @@ const styles = StyleSheet.create({
   previewImage: {
     width: '100%',
     height: 200,
-    borderRadius: 8,
-    marginBottom: 16,
+    borderRadius: 10,
+    marginBottom: 20,
     resizeMode: 'cover',
     borderWidth: 1,
-    borderColor: '#eee',
+    borderColor: '#ddd',
   },
-})};
+  loadingContainer: {
+    alignItems: 'center',
+    marginVertical: 30,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
+  },
+  message: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    color: '#2e7d32',
+    backgroundColor: '#e8f5e9',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 20,
+  },
+  submitButton: {
+    backgroundColor: '#4CAF50',
+    padding: 18,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 10,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  disabledButton: {
+    backgroundColor: '#a5d6a7',
+  },
+  submitButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+});

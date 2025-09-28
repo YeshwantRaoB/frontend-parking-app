@@ -33,6 +33,7 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "scheme": "college-parking-app",
     "plugins": [
       "expo-web-browser"
     ]

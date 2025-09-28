@@ -1,12 +1,10 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, Image, StyleSheet, SafeAreaView, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth, useOAuth } from '@clerk/clerk-expo';
-import * as WebBrowser from 'expo-web-browser';
-
-// WebBrowser.maybeCompleteAuthSession(); // For web only
 
 export default function LoginScreen({ navigation }) {
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded } = useAuth();
   const [isLoading, setIsLoading] = React.useState(false);
   
   // Use the useOAuth hook for Google OAuth
@@ -44,17 +42,16 @@ export default function LoginScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        <Image 
-          source={require('../assets/logo.png')} 
-          style={styles.logo}
-          resizeMode="contain"
-        />
-        <Text style={styles.title}>Welcome to College Parking App</Text>
-        <Text style={styles.subtitle}>Sign in to manage your parking</Text>
+        <View style={styles.logoContainer}>
+          <Text style={styles.logoText}>🚗</Text>
+        </View>
+        <Text style={styles.title}>College Parking Management</Text>
+        <Text style={styles.subtitle}>Sign in with your college email to continue</Text>
         
         {isLoading ? (
           <View style={[styles.button, styles.loadingButton]}>
             <ActivityIndicator color="#fff" />
+            <Text style={styles.loadingText}>Signing in...</Text>
           </View>
         ) : (
           <TouchableOpacity 
@@ -62,9 +59,20 @@ export default function LoginScreen({ navigation }) {
             onPress={handleGoogleSignIn}
             disabled={isLoading}
           >
-            <Text style={styles.buttonText}>Sign In with Google</Text>
+            <Text style={styles.buttonText}>🔐 Sign In with Google</Text>
           </TouchableOpacity>
         )}
+        
+        <TouchableOpacity 
+          style={[styles.button, { backgroundColor: '#28a745', marginTop: 20 }]} 
+          onPress={() => navigation.navigate('Test')}
+        >
+          <Text style={styles.buttonText}>🔧 Test Network Connection</Text>
+        </TouchableOpacity>
+
+        <Text style={styles.footerText}>
+          For students, teachers, and college management
+        </Text>
       </View>
     </SafeAreaView>
   );
@@ -73,23 +81,35 @@ export default function LoginScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#f5f5f5',
   },
   content: {
     flex: 1,
-    padding: 24,
+    padding: 30,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  logo: {
-    width: 150,
-    height: 150,
-    marginBottom: 24,
+  logoContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#4a90e2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 30,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  logoText: {
+    fontSize: 50,
   },
   title: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
-    marginBottom: 8,
+    marginBottom: 10,
     textAlign: 'center',
     color: '#333',
   },
@@ -97,23 +117,43 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
     textAlign: 'center',
-    marginBottom: 32,
+    marginBottom: 40,
+    paddingHorizontal: 20,
+    lineHeight: 22,
   },
   button: {
-    backgroundColor: '#007AFF',
-    padding: 16,
-    borderRadius: 8,
+    backgroundColor: '#4a90e2',
+    padding: 18,
+    borderRadius: 12,
     width: '100%',
-    maxWidth: 300,
+    maxWidth: 320,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   buttonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
   },
   loadingButton: {
+    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  loadingText: {
+    color: '#fff',
+    fontSize: 16,
+    marginLeft: 10,
+  },
+  footerText: {
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center',
+    marginTop: 30,
+    fontStyle: 'italic',
   },
 });
