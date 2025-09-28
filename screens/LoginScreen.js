@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth, useOAuth } from '@clerk/clerk-expo';
+import Footer from '../components/Footer';
 
 export default function LoginScreen({ navigation }) {
   const { isLoaded } = useAuth();
@@ -74,6 +75,8 @@ export default function LoginScreen({ navigation }) {
           For students, teachers, and college management
         </Text>
       </View>
+      
+      <Footer />
     </SafeAreaView>
   );
 }
