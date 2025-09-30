@@ -18,6 +18,8 @@ import { useAuth, useUser } from '@clerk/clerk-expo';
 import { API_BASE_URL } from './config';
 import { testNetworkConnection } from './utils/networkTest';
 import Footer from './components/Footer';
+import LicensePlateScanner from './components/LicensePlateScanner';
+import VehicleDetailsModal from './components/VehicleDetailsModal';
 
 // Branch/Department options (same as registration screen)
 const BRANCH_OPTIONS = [
@@ -109,6 +111,11 @@ export default function AdminScreen() {
   const [showEditDesignationModal, setShowEditDesignationModal] = useState(false);
   const [showEditStaffPositionModal, setShowEditStaffPositionModal] = useState(false);
   const [showEditVehicleTypeModal, setShowEditVehicleTypeModal] = useState(false);
+
+  // License plate scanner states
+  const [showLicensePlateScanner, setShowLicensePlateScanner] = useState(false);
+  const [showVehicleDetailsModal, setShowVehicleDetailsModal] = useState(false);
+  const [scannedVehicle, setScannedVehicle] = useState(null);
 
 
   const navigation = useNavigation();
@@ -613,6 +620,17 @@ export default function AdminScreen() {
     }
   };
 
+  // License plate scanner handlers
+  const handleVehicleFound = (vehicle) => {
+    setScannedVehicle(vehicle);
+    setShowVehicleDetailsModal(true);
+  };
+
+  const handleEditScannedVehicle = (vehicle) => {
+    setShowVehicleDetailsModal(false);
+    openEditModal(vehicle);
+  };
+
   const renderVehicle = ({ item }) => {
     // Enhanced Debug: Log all vehicle data to identify owner photo issue
     console.log('=== ADMIN SCREEN VEHICLE DATA ===');
@@ -725,6 +743,9 @@ export default function AdminScreen() {
         </View>
 
         <View style={styles.actionButtons}>
+          <TouchableOpacity onPress={() => setShowLicensePlateScanner(true)} style={styles.scanButton}>
+            <Text style={styles.scanButtonText}>📷 Scan Plate</Text>
+          </TouchableOpacity>
           <TouchableOpacity onPress={() => navigation.navigate('Registration')} style={styles.registerButton}>
             <Text style={styles.registerText}>+ Vehicle</Text>
           </TouchableOpacity>
@@ -1125,6 +1146,21 @@ export default function AdminScreen() {
 
 
       <Footer />
+
+      {/* License Plate Scanner Modal */}
+      <LicensePlateScanner
+        visible={showLicensePlateScanner}
+        onClose={() => setShowLicensePlateScanner(false)}
+        onVehicleFound={handleVehicleFound}
+      />
+
+      {/* Vehicle Details Modal */}
+      <VehicleDetailsModal
+        visible={showVehicleDetailsModal}
+        onClose={() => setShowVehicleDetailsModal(false)}
+        vehicle={scannedVehicle}
+        onEdit={handleEditScannedVehicle}
+      />
     </View>
   );
 }
@@ -1179,6 +1215,22 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 2,
+  },
+  scanButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    backgroundColor: '#ff6b35',
+    borderRadius: 10,
+    shadowColor: '#ff6b35',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  scanButtonText: {
+    color: 'white',
+    fontWeight: '700',
+    fontSize: 14,
   },
   registerButton: {
     paddingVertical: 12,
