@@ -20,6 +20,8 @@ import { testNetworkConnection } from './utils/networkTest';
 import Footer from './components/Footer';
 import LicensePlateScanner from './components/LicensePlateScanner';
 import VehicleDetailsModal from './components/VehicleDetailsModal';
+import StatsOverview from './components/admin/StatsOverview';
+import StatsPanel from './components/admin/StatsPanel';
 
 // Branch/Department options (same as registration screen)
 const BRANCH_OPTIONS = [
@@ -116,6 +118,10 @@ export default function AdminScreen() {
   const [showLicensePlateScanner, setShowLicensePlateScanner] = useState(false);
   const [showVehicleDetailsModal, setShowVehicleDetailsModal] = useState(false);
   const [scannedVehicle, setScannedVehicle] = useState(null);
+
+  // Stats panel states
+  const [showStatsPanel, setShowStatsPanel] = useState(false);
+  const [statsFilter, setStatsFilter] = useState(null);
 
 
   const navigation = useNavigation();
@@ -331,6 +337,7 @@ export default function AdminScreen() {
     setActiveFilters(clearedFilters);
     setSearchText('');
     setQuickFilterActive('');
+    setStatsFilter(null);
     setPage(1);
     applyClientSideFiltering(allVehicles, clearedFilters, '', sortBy, sortOrder);
   };
@@ -620,6 +627,36 @@ export default function AdminScreen() {
     }
   };
 
+  // Stats filter handler
+  const handleStatsFilterSelect = (type, value) => {
+    setStatsFilter({ type, value });
+    
+    // Apply the filter to the existing filter system
+    const newFilters = { ...activeFilters };
+    
+    if (type === 'clear') {
+      // Clear all filters
+      clearAllFilters();
+      setStatsFilter(null);
+      return;
+    } else if (type === 'designation') {
+      newFilters.designation = value;
+      newFilters.staffPosition = ''; // Clear staff position when changing designation
+      setQuickFilterActive(value === 'Student' ? 'students' : 'staff');
+    } else if (type === 'branch') {
+      newFilters.branch = value;
+      newFilters.designation = 'Student'; // Branches are only for students
+      setQuickFilterActive('');
+    } else if (type === 'recent') {
+      newFilters.dateRange = 'last30days';
+      setQuickFilterActive('recent');
+    }
+    
+    setActiveFilters(newFilters);
+    setPage(1);
+    applyClientSideFiltering(allVehicles, newFilters, searchText.trim(), sortBy, sortOrder);
+  };
+
   // License plate scanner handlers
   const handleVehicleFound = (vehicle) => {
     setScannedVehicle(vehicle);
@@ -749,6 +786,9 @@ export default function AdminScreen() {
           <TouchableOpacity onPress={() => navigation.navigate('Registration')} style={styles.registerButton}>
             <Text style={styles.registerText}>+ Vehicle</Text>
           </TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowStatsPanel(true)} style={styles.statsButton}>
+            <Text style={styles.statsButtonText}>📊 Stats</Text>
+          </TouchableOpacity>
           <TouchableOpacity onPress={() => setShowAddAdminModal(true)} style={styles.addAdminButton}>
             <Text style={styles.addAdminText}>+ Admin</Text>
           </TouchableOpacity>
@@ -756,6 +796,13 @@ export default function AdminScreen() {
             <Text style={styles.signOutText}>Sign Out</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Stats Overview */}
+        <StatsOverview 
+          onFilterSelect={handleStatsFilterSelect}
+          activeFilter={statsFilter}
+          style={styles.statsOverview}
+        />
 
         {/* Simplified Search Bar */}
         <View style={styles.searchInputContainer}>
@@ -1161,6 +1208,28 @@ export default function AdminScreen() {
         vehicle={scannedVehicle}
         onEdit={handleEditScannedVehicle}
       />
+
+      {/* Detailed Stats Panel Modal */}
+      <Modal visible={showStatsPanel} animationType="slide" transparent={false}>
+        <View style={styles.statsModalContainer}>
+          <View style={styles.statsModalHeader}>
+            <Text style={styles.statsModalTitle}>Detailed Statistics</Text>
+            <TouchableOpacity 
+              style={styles.statsModalCloseButton} 
+              onPress={() => setShowStatsPanel(false)}
+            >
+              <Text style={styles.statsModalCloseText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          <StatsPanel 
+            onFilterSelect={(type, value) => {
+              handleStatsFilterSelect(type, value);
+              setShowStatsPanel(false); // Close modal after selecting filter
+            }}
+            activeFilter={statsFilter}
+          />
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1216,6 +1285,9 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
+  statsOverview: {
+    marginBottom: 8,
+  },
   scanButton: {
     paddingVertical: 12,
     paddingHorizontal: 20,
@@ -1260,6 +1332,22 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   addAdminText: {
+    color: 'white',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  statsButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    backgroundColor: '#17a2b8',
+    borderRadius: 10,
+    shadowColor: '#17a2b8',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  statsButtonText: {
     color: 'white',
     fontWeight: '700',
     fontSize: 14,
@@ -1877,5 +1965,49 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6c757d',
     fontStyle: 'italic',
+  },
+  // Stats modal styles
+  statsModalContainer: {
+    flex: 1,
+    backgroundColor: '#f0f2f5',
+  },
+  statsModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    paddingTop: 50,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e9ecef',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  statsModalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+  },
+  statsModalCloseButton: {
+    backgroundColor: '#f44336',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#f44336',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  statsModalCloseText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
 });
