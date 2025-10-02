@@ -8,6 +8,8 @@ import {
   ScrollView,
   Image,
   Dimensions,
+  Linking,
+  Alert,
 } from 'react-native';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -23,6 +25,40 @@ const VehicleDetailsModal = ({ visible, onClose, vehicle, onEdit }) => {
       hour: '2-digit',
       minute: '2-digit',
     });
+  };
+
+  // Direct call function
+  const handleDirectCall = (phoneNumber, vehicleInfo = '') => {
+    if (!phoneNumber) {
+      Alert.alert('No Phone Number', 'No phone number available for this vehicle');
+      return;
+    }
+
+    Alert.alert(
+      'Make Call',
+      `Do you want to call ${phoneNumber}${vehicleInfo ? `\n(${vehicleInfo})` : ''}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Call',
+          onPress: () => {
+            const phoneUrl = `tel:${phoneNumber}`;
+            Linking.canOpenURL(phoneUrl)
+              .then((supported) => {
+                if (supported) {
+                  return Linking.openURL(phoneUrl);
+                } else {
+                  Alert.alert('Error', 'Phone calls are not supported on this device');
+                }
+              })
+              .catch((err) => {
+                console.error('Error opening phone dialer:', err);
+                Alert.alert('Error', 'Failed to open phone dialer');
+              });
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -51,6 +87,23 @@ const VehicleDetailsModal = ({ visible, onClose, vehicle, onEdit }) => {
                 <Text style={styles.label}>Full Name:</Text>
                 <Text style={styles.value}>{vehicle.fullName}</Text>
               </View>
+              
+              {/* Phone Number with Call Button */}
+              {vehicle.phoneNumber && (
+                <View style={styles.phoneRow}>
+                  <View style={styles.phoneInfo}>
+                    <Text style={styles.label}>Phone:</Text>
+                    <Text style={styles.phoneValue}>📞 {vehicle.phoneNumber}</Text>
+                  </View>
+                  <TouchableOpacity 
+                    style={styles.callButton}
+                    onPress={() => handleDirectCall(vehicle.phoneNumber, `${vehicle.licencePlate} - ${vehicle.fullName}`)}
+                  >
+                    <Text style={styles.callButtonText}>📞 Call</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              
               <View style={styles.infoRow}>
                 <Text style={styles.label}>Branch:</Text>
                 <Text style={styles.value}>{vehicle.branch}</Text>
@@ -254,6 +307,49 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     flex: 2,
     textAlign: 'right',
+  },
+  phoneRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    backgroundColor: '#e7f3ff',
+    borderRadius: 10,
+    marginVertical: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#4a90e2',
+  },
+  phoneInfo: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  phoneValue: {
+    fontSize: 14,
+    color: '#4a90e2',
+    fontWeight: '700',
+    fontFamily: 'monospace',
+    flex: 2,
+    textAlign: 'right',
+    marginRight: 15,
+  },
+  callButton: {
+    backgroundColor: '#28a745',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 8,
+    shadowColor: '#28a745',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  callButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   photoContainer: {
     marginBottom: 15,

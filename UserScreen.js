@@ -69,7 +69,9 @@ export default function UserScreen() {
     staffPosition: '',
     vehicleName: '',
     vehicleType: '',
+    phoneNumber: '',
   });
+  const [phoneError, setPhoneError] = useState('');
   const [updating, setUpdating] = useState(false);
 
   // Modal states for dropdowns
@@ -85,6 +87,33 @@ export default function UserScreen() {
   useEffect(() => {
     fetchMyVehicles();
   }, []);
+
+  // Phone number validation function
+  const validatePhoneNumber = (phone) => {
+    const phoneRegex = /^[6-9]\d{9}$/;
+    return phoneRegex.test(phone);
+  };
+
+  const handlePhoneChange = (input) => {
+    // Remove any non-digit characters
+    const cleanedInput = input.replace(/\D/g, '');
+    
+    // Limit to 10 digits
+    const limitedInput = cleanedInput.slice(0, 10);
+    
+    setFormData((prev) => ({ ...prev, phoneNumber: limitedInput }));
+    
+    // Validate phone number
+    if (limitedInput.length === 10 && validatePhoneNumber(limitedInput)) {
+      setPhoneError('');
+    } else if (limitedInput.length === 10) {
+      setPhoneError('Phone number must start with 6, 7, 8, or 9');
+    } else if (limitedInput.length > 0) {
+      setPhoneError('Phone number must be 10 digits');
+    } else {
+      setPhoneError('');
+    }
+  };
 
   const fetchMyVehicles = async () => {
     try {
@@ -138,7 +167,9 @@ export default function UserScreen() {
       staffPosition: vehicle.staffPosition || vehicle.department || '',
       vehicleName: vehicle.vehicleName || '',
       vehicleType: vehicle.vehicleType || '',
+      phoneNumber: vehicle.phoneNumber || '',
     });
+    setPhoneError('');
     setModalVisible(true);
   };
 
@@ -154,7 +185,9 @@ export default function UserScreen() {
       staffPosition: '',
       vehicleName: '',
       vehicleType: '',
+      phoneNumber: '',
     });
+    setPhoneError('');
   };
 
   const handleFormChange = (field, value) => {
@@ -202,8 +235,14 @@ export default function UserScreen() {
     if (!selectedVehicle) return;
 
     // Validation
-    if (!formData.licencePlate.trim() || !formData.fullName.trim() || !formData.branch.trim() || !formData.designation.trim() || !formData.vehicleName.trim() || !formData.vehicleType.trim()) {
-      Alert.alert('Validation error', 'Please fill all required fields');
+    if (!formData.licencePlate.trim() || !formData.fullName.trim() || !formData.branch.trim() || !formData.designation.trim() || !formData.vehicleName.trim() || !formData.vehicleType.trim() || !formData.phoneNumber.trim()) {
+      Alert.alert('Validation error', 'Please fill all required fields including phone number');
+      return;
+    }
+
+    // Phone number validation
+    if (!validatePhoneNumber(formData.phoneNumber)) {
+      Alert.alert('Validation error', 'Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9');
       return;
     }
 
@@ -313,6 +352,9 @@ export default function UserScreen() {
         <View style={styles.vehicleInfo}>
           <Text style={styles.licensePlate}>{item.licencePlate}</Text>
           <Text style={styles.vehicleDetail}>Name: {item.fullName}</Text>
+          {item.phoneNumber && (
+            <Text style={styles.phoneNumber}>📞 {item.phoneNumber}</Text>
+          )}
           {item.vehicleName && (
             <Text style={styles.vehicleDetail}>Vehicle: {item.vehicleName}</Text>
           )}
@@ -407,6 +449,24 @@ export default function UserScreen() {
               value={formData.fullName}
               onChangeText={(val) => handleFormChange('fullName', val)}
             />
+
+            {/* Phone Number Input */}
+            <View style={styles.phoneSection}>
+              <Text style={styles.sectionLabel}>📞 Contact Information</Text>
+              <TextInput
+                style={[styles.modalInput, phoneError ? styles.inputError : null]}
+                placeholder="Phone Number (10 digits)"
+                value={formData.phoneNumber}
+                onChangeText={handlePhoneChange}
+                keyboardType="phone-pad"
+                maxLength={10}
+              />
+              {phoneError ? <Text style={styles.errorText}>{phoneError}</Text> : null}
+              <Text style={styles.helperText}>
+                Enter a valid Indian mobile number starting with 6, 7, 8, or 9
+              </Text>
+            </View>
+
             <TextInput
               style={styles.modalInput}
               placeholder="Vehicle Name/Model"
@@ -781,6 +841,13 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 4,
   },
+  phoneNumber: {
+    fontSize: 14,
+    color: '#4a90e2',
+    marginBottom: 4,
+    fontWeight: '600',
+    fontFamily: 'monospace',
+  },
   editButton: {
     backgroundColor: '#4a90e2',
     paddingHorizontal: 20,
@@ -903,6 +970,26 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     paddingHorizontal: 4,
     lineHeight: 16,
+  },
+  phoneSection: {
+    backgroundColor: '#e7f3ff',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#4a90e2',
+  },
+  inputError: {
+    borderColor: '#dc3545',
+    borderWidth: 2,
+  },
+  errorText: {
+    color: '#dc3545',
+    fontSize: 12,
+    marginTop: 4,
+    marginBottom: 8,
+    paddingHorizontal: 4,
+    fontWeight: '500',
   },
   // Dropdown modal styles
   dropdownModalOverlay: {

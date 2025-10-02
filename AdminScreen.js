@@ -12,6 +12,7 @@ import {
   ScrollView,
   Image,
   Dimensions,
+  Linking,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth, useUser } from '@clerk/clerk-expo';
@@ -98,7 +99,9 @@ export default function AdminScreen() {
     staffPosition: '',
     vehicleName: '',
     vehicleType: '',
+    phoneNumber: '',
   });
+  const [phoneError, setPhoneError] = useState('');
   const [actionProcessing, setActionProcessing] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [error, setError] = useState('');
@@ -150,6 +153,33 @@ export default function AdminScreen() {
       }
     }
   }, [isLoaded, user]);
+
+  // Phone number validation function
+  const validatePhoneNumber = (phone) => {
+    const phoneRegex = /^[6-9]\d{9}$/;
+    return phoneRegex.test(phone);
+  };
+
+  const handlePhoneChange = (input) => {
+    // Remove any non-digit characters
+    const cleanedInput = input.replace(/\D/g, '');
+    
+    // Limit to 10 digits
+    const limitedInput = cleanedInput.slice(0, 10);
+    
+    setFormData((prev) => ({ ...prev, phoneNumber: limitedInput }));
+    
+    // Validate phone number
+    if (limitedInput.length === 10 && validatePhoneNumber(limitedInput)) {
+      setPhoneError('');
+    } else if (limitedInput.length === 10) {
+      setPhoneError('Phone number must start with 6, 7, 8, or 9');
+    } else if (limitedInput.length > 0) {
+      setPhoneError('Phone number must be 10 digits');
+    } else {
+      setPhoneError('');
+    }
+  };
 
   // Fetch all vehicles from backend (using existing API)
   const fetchAllVehicles = async () => {
@@ -395,7 +425,9 @@ export default function AdminScreen() {
       staffPosition: vehicle.staffPosition || vehicle.department || '',
       vehicleName: vehicle.vehicleName || '',
       vehicleType: vehicle.vehicleType || '',
+      phoneNumber: vehicle.phoneNumber || '',
     });
+    setPhoneError('');
     setModalVisible(true);
   };
 
@@ -411,7 +443,9 @@ export default function AdminScreen() {
       staffPosition: '',
       vehicleName: '',
       vehicleType: '',
+      phoneNumber: '',
     });
+    setPhoneError('');
   };
 
   const handleFormChange = (field, value) => {
@@ -455,8 +489,14 @@ export default function AdminScreen() {
     if (!selectedVehicle) return;
 
     // Enhanced validation
-    if (!formData.licencePlate.trim() || !formData.fullName.trim() || !formData.branch.trim() || !formData.designation.trim() || !formData.vehicleName.trim() || !formData.vehicleType.trim()) {
-      Alert.alert('Validation error', 'Please fill all required fields');
+    if (!formData.licencePlate.trim() || !formData.fullName.trim() || !formData.branch.trim() || !formData.designation.trim() || !formData.vehicleName.trim() || !formData.vehicleType.trim() || !formData.phoneNumber.trim()) {
+      Alert.alert('Validation error', 'Please fill all required fields including phone number');
+      return;
+    }
+
+    // Phone number validation
+    if (!validatePhoneNumber(formData.phoneNumber)) {
+      Alert.alert('Validation error', 'Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9');
       return;
     }
 
@@ -668,6 +708,40 @@ export default function AdminScreen() {
     openEditModal(vehicle);
   };
 
+  // Direct call function
+  const handleDirectCall = (phoneNumber, vehicleInfo = '') => {
+    if (!phoneNumber) {
+      Alert.alert('No Phone Number', 'No phone number available for this vehicle');
+      return;
+    }
+
+    Alert.alert(
+      'Make Call',
+      `Do you want to call ${phoneNumber}${vehicleInfo ? `\n(${vehicleInfo})` : ''}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Call',
+          onPress: () => {
+            const phoneUrl = `tel:${phoneNumber}`;
+            Linking.canOpenURL(phoneUrl)
+              .then((supported) => {
+                if (supported) {
+                  return Linking.openURL(phoneUrl);
+                } else {
+                  Alert.alert('Error', 'Phone calls are not supported on this device');
+                }
+              })
+              .catch((err) => {
+                console.error('Error opening phone dialer:', err);
+                Alert.alert('Error', 'Failed to open phone dialer');
+              });
+          },
+        },
+      ]
+    );
+  };
+
   const renderVehicle = ({ item }) => {
     // Enhanced Debug: Log all vehicle data to identify owner photo issue
     console.log('=== ADMIN SCREEN VEHICLE DATA ===');
@@ -689,6 +763,20 @@ export default function AdminScreen() {
           </Text>
         </View>
         <Text style={styles.vehicleDetail}>Name: {item.fullName}</Text>
+        
+        {/* Phone Number with Call Button */}
+        {item.phoneNumber && (
+          <View style={styles.phoneContainer}>
+            <Text style={styles.phoneNumber}>📞 {item.phoneNumber}</Text>
+            <TouchableOpacity 
+              style={styles.callButton}
+              onPress={() => handleDirectCall(item.phoneNumber, `${item.licencePlate} - ${item.fullName}`)}
+            >
+              <Text style={styles.callButtonText}>📞 Call</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        
         <Text style={styles.vehicleDetail}>Branch: {item.branch}</Text>
         <Text style={styles.vehicleDetail}>Designation: {item.designation}</Text>
         {item.registerNumber && (
@@ -1057,6 +1145,24 @@ export default function AdminScreen() {
               value={formData.fullName}
               onChangeText={(val) => handleFormChange('fullName', val)}
             />
+
+            {/* Phone Number Input */}
+            <View style={styles.phoneSection}>
+              <Text style={styles.sectionLabel}>📞 Contact Information</Text>
+              <TextInput
+                style={[styles.modalInput, phoneError ? styles.inputError : null]}
+                placeholder="Phone Number (10 digits)"
+                value={formData.phoneNumber}
+                onChangeText={handlePhoneChange}
+                keyboardType="phone-pad"
+                maxLength={10}
+              />
+              {phoneError ? <Text style={styles.errorText}>{phoneError}</Text> : null}
+              <Text style={styles.helperText}>
+                Enter a valid Indian mobile number starting with 6, 7, 8, or 9
+              </Text>
+            </View>
+
             <TextInput
               style={styles.modalInput}
               placeholder="Vehicle Name/Model"
@@ -1630,6 +1736,40 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 3,
   },
+  phoneContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#e7f3ff',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#4a90e2',
+  },
+  phoneNumber: {
+    fontSize: 14,
+    color: '#4a90e2',
+    fontWeight: '600',
+    fontFamily: 'monospace',
+    flex: 1,
+  },
+  callButton: {
+    backgroundColor: '#28a745',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    shadowColor: '#28a745',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  callButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
   // Photo Section Styles - Button Only
   photoSection: {
     marginTop: 12,
@@ -1878,6 +2018,40 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   editHelperText: {
+    fontSize: 12,
+    color: '#6c757d',
+    marginTop: -12,
+    marginBottom: 16,
+    paddingHorizontal: 4,
+    lineHeight: 16,
+  },
+  phoneSection: {
+    backgroundColor: '#e7f3ff',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#4a90e2',
+  },
+  sectionLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#495057',
+    marginBottom: 12,
+  },
+  inputError: {
+    borderColor: '#dc3545',
+    borderWidth: 2,
+  },
+  errorText: {
+    color: '#dc3545',
+    fontSize: 12,
+    marginTop: 4,
+    marginBottom: 8,
+    paddingHorizontal: 4,
+    fontWeight: '500',
+  },
+  helperText: {
     fontSize: 12,
     color: '#6c757d',
     marginTop: -12,

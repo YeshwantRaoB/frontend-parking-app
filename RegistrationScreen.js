@@ -50,6 +50,8 @@ export default function RegistrationScreen() {
   const [staffPosition, setStaffPosition] = useState('');
   const [vehicleName, setVehicleName] = useState('');
   const [vehicleType, setVehicleType] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [phoneError, setPhoneError] = useState('');
 
   const [vehiclePhoto, setVehiclePhoto] = useState(null);
   const [ownerPhoto, setOwnerPhoto] = useState(null);
@@ -78,6 +80,33 @@ export default function RegistrationScreen() {
       });
     }
   }, [user]);
+
+  // Phone number validation function
+  const validatePhoneNumber = (phone) => {
+    const phoneRegex = /^[6-9]\d{9}$/;
+    return phoneRegex.test(phone);
+  };
+
+  const handlePhoneChange = (input) => {
+    // Remove any non-digit characters
+    const cleanedInput = input.replace(/\D/g, '');
+    
+    // Limit to 10 digits
+    const limitedInput = cleanedInput.slice(0, 10);
+    
+    setPhoneNumber(limitedInput);
+    
+    // Validate phone number
+    if (limitedInput.length === 10 && validatePhoneNumber(limitedInput)) {
+      setPhoneError('');
+    } else if (limitedInput.length === 10) {
+      setPhoneError('Phone number must start with 6, 7, 8, or 9');
+    } else if (limitedInput.length > 0) {
+      setPhoneError('Phone number must be 10 digits');
+    } else {
+      setPhoneError('');
+    }
+  };
 
   const pickImage = async (type) => {
     try {
@@ -142,8 +171,14 @@ export default function RegistrationScreen() {
 
   const handleSubmit = async () => {
     // Validation
-    if (!licencePlate.trim() || !fullName.trim() || !branch.trim() || !designation.trim() || !vehicleName.trim() || !vehicleType.trim() || !vehiclePhoto || !ownerPhoto) {
-      Alert.alert('Validation error', 'Please fill all required fields and upload both photos');
+    if (!licencePlate.trim() || !fullName.trim() || !branch.trim() || !designation.trim() || !vehicleName.trim() || !vehicleType.trim() || !phoneNumber.trim() || !vehiclePhoto || !ownerPhoto) {
+      Alert.alert('Validation error', 'Please fill all required fields, including phone number, and upload both photos');
+      return;
+    }
+
+    // Phone number validation
+    if (!validatePhoneNumber(phoneNumber)) {
+      Alert.alert('Validation error', 'Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9');
       return;
     }
 
@@ -236,6 +271,7 @@ export default function RegistrationScreen() {
         designation: designation.trim(),
         vehicleName: vehicleName.trim(),
         vehicleType: vehicleType.trim(),
+        phoneNumber: phoneNumber.trim(),
         vehiclePhotoUrl: vehicleImageJson.url,
         ownerPhotoUrl: ownerImageJson.url,
         // Also try alternative field names the backend might expect
@@ -276,6 +312,8 @@ export default function RegistrationScreen() {
         setStaffPosition('');
         setVehicleName('');
         setVehicleType('');
+        setPhoneNumber('');
+        setPhoneError('');
         setVehiclePhoto(null);
         setOwnerPhoto(null);
         setMessage('Registration successful! You can register another vehicle or go back.');
@@ -333,6 +371,23 @@ export default function RegistrationScreen() {
         value={fullName}
         onChangeText={setFullName}
       />
+
+      {/* Phone Number Input */}
+      <View style={styles.phoneSection}>
+        <Text style={styles.sectionLabel}>📞 Contact Information</Text>
+        <TextInput
+          style={[styles.input, phoneError ? styles.inputError : null]}
+          placeholder="Phone Number (10 digits)"
+          value={phoneNumber}
+          onChangeText={handlePhoneChange}
+          keyboardType="phone-pad"
+          maxLength={10}
+        />
+        {phoneError ? <Text style={styles.errorText}>{phoneError}</Text> : null}
+        <Text style={styles.helperText}>
+          Enter a valid Indian mobile number starting with 6, 7, 8, or 9
+        </Text>
+      </View>
 
       <TextInput
         style={styles.input}
@@ -620,6 +675,26 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     paddingHorizontal: 4,
     lineHeight: 16,
+  },
+  phoneSection: {
+    backgroundColor: '#e7f3ff',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#4a90e2',
+  },
+  inputError: {
+    borderColor: '#dc3545',
+    borderWidth: 2,
+  },
+  errorText: {
+    color: '#dc3545',
+    fontSize: 12,
+    marginTop: 4,
+    marginBottom: 8,
+    paddingHorizontal: 4,
+    fontWeight: '500',
   },
   photoSection: {
     backgroundColor: '#fff',
