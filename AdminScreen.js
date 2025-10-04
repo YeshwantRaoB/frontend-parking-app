@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,8 @@ import {
   Image,
   Dimensions,
   Linking,
+  Animated,
+  SafeAreaView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth, useUser } from '@clerk/clerk-expo';
@@ -65,31 +67,49 @@ const isUserAdmin = (user) => {
 };
 
 export default function AdminScreen() {
-  const [searchText, setSearchText] = useState('');
+  // Core state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [vehicles, setVehicles] = useState([]);
-  const [page, setPage] = useState(1);
-  const [limit] = useState(10);
-  const [totalPages, setTotalPages] = useState(1);
+  const [allVehicles, setAllVehicles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [error, setError] = useState('');
+
+  // Filter and sort state
   const [sortBy, setSortBy] = useState('licencePlate');
   const [sortOrder, setSortOrder] = useState('asc');
-  const [loading, setLoading] = useState(true);
-
-  // Simplified filtering states
   const [activeFilters, setActiveFilters] = useState({
     branch: '',
     designation: '',
     staffPosition: '',
     dateRange: '',
-    searchField: 'licencePlate'
   });
   const [totalResults, setTotalResults] = useState(0);
-  const [quickFilterActive, setQuickFilterActive] = useState('');
 
-  // Client-side data management
-  const [allVehicles, setAllVehicles] = useState([]);
-  const [filteredVehicles, setFilteredVehicles] = useState([]);
+  // UI state
+  const [showFilterSheet, setShowFilterSheet] = useState(false);
+  const [showLicensePlateScanner, setShowLicensePlateScanner] = useState(false);
+  const [showVehicleDetailsModal, setShowVehicleDetailsModal] = useState(false);
+  const [showStatsPanel, setShowStatsPanel] = useState(false);
+  const [showAddAdminModal, setShowAddAdminModal] = useState(false);
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const [showEditBranchModal, setShowEditBranchModal] = useState(false);
+  const [showEditDesignationModal, setShowEditDesignationModal] = useState(false);
+  const [showEditStaffPositionModal, setShowEditStaffPositionModal] = useState(false);
+  const [showEditVehicleTypeModal, setShowEditVehicleTypeModal] = useState(false);
+
+  // Data state
   const [selectedVehicle, setSelectedVehicle] = useState(null);
+  const [scannedVehicle, setScannedVehicle] = useState(null);
+  const [selectedPhoto, setSelectedPhoto] = useState(null);
+  const [selectedPhotoInfo, setSelectedPhotoInfo] = useState(null);
+  const [adminEmail, setAdminEmail] = useState('');
+  const [statsFilter, setStatsFilter] = useState(null);
+  const [actionProcessing, setActionProcessing] = useState(false);
+
+  // Form state
   const [formData, setFormData] = useState({
     licencePlate: '',
     fullName: '',
@@ -102,34 +122,23 @@ export default function AdminScreen() {
     phoneNumber: '',
   });
   const [phoneError, setPhoneError] = useState('');
-  const [actionProcessing, setActionProcessing] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [error, setError] = useState('');
-  const [showAddAdminModal, setShowAddAdminModal] = useState(false);
-  const [adminEmail, setAdminEmail] = useState('');
-  const [showPhotoModal, setShowPhotoModal] = useState(false);
-  const [selectedPhoto, setSelectedPhoto] = useState(null);
-  const [selectedPhotoInfo, setSelectedPhotoInfo] = useState(null);
 
-  // Modal states for edit form dropdowns
-  const [showEditBranchModal, setShowEditBranchModal] = useState(false);
-  const [showEditDesignationModal, setShowEditDesignationModal] = useState(false);
-  const [showEditStaffPositionModal, setShowEditStaffPositionModal] = useState(false);
-  const [showEditVehicleTypeModal, setShowEditVehicleTypeModal] = useState(false);
-
-  // License plate scanner states
-  const [showLicensePlateScanner, setShowLicensePlateScanner] = useState(false);
-  const [showVehicleDetailsModal, setShowVehicleDetailsModal] = useState(false);
-  const [scannedVehicle, setScannedVehicle] = useState(null);
-
-  // Stats panel states
-  const [showStatsPanel, setShowStatsPanel] = useState(false);
-  const [statsFilter, setStatsFilter] = useState(null);
-
+  // Animation states
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const scaleAnim = useRef(new Animated.Value(0.9)).current;
 
   const navigation = useNavigation();
   const { signOut, getToken } = useAuth();
   const { user, isLoaded } = useUser();
+
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   // Check if user is admin when component mounts
   useEffect(() => {
@@ -153,6 +162,36 @@ export default function AdminScreen() {
       }
     }
   }, [isLoaded, user]);
+
+  // Apply filtering when search or filters change
+  useEffect(() => {
+    if (allVehicles.length > 0) {
+      applyClientSideFiltering(allVehicles, activeFilters, debouncedSearchQuery, sortBy, sortOrder);
+    }
+  }, [allVehicles, activeFilters, debouncedSearchQuery, sortBy, sortOrder]);
+
+  // Animation effect when vehicles load
+  useEffect(() => {
+    if (vehicles.length > 0 && !loading) {
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [vehicles, loading]);
 
   // Phone number validation function
   const validatePhoneNumber = (phone) => {
@@ -216,7 +255,7 @@ export default function AdminScreen() {
       setAllVehicles(json.vehicles || []);
 
       // Apply initial filtering and sorting
-      applyClientSideFiltering(json.vehicles || [], activeFilters, searchText, sortBy, sortOrder);
+      applyClientSideFiltering(json.vehicles || [], activeFilters, searchQuery, sortBy, sortOrder);
 
     } catch (error) {
       console.error('Error fetching vehicles:', error);
@@ -226,11 +265,11 @@ export default function AdminScreen() {
     }
   };
 
-  // Client-side filtering and sorting
-  const applyClientSideFiltering = (vehicleData, filters, query, sortField, sortDirection) => {
+  // Unified client-side filtering and sorting
+  const applyClientSideFiltering = useCallback((vehicleData, filters, query, sortField, sortDirection) => {
     let filtered = [...vehicleData];
 
-    // Apply search filter - search across all fields
+    // Apply unified search filter - search across multiple fields
     if (query && query.trim()) {
       const searchTerm = query.toLowerCase().trim();
       filtered = filtered.filter(vehicle => {
@@ -238,22 +277,22 @@ export default function AdminScreen() {
           vehicle.licencePlate?.toLowerCase().includes(searchTerm) ||
           vehicle.fullName?.toLowerCase().includes(searchTerm) ||
           vehicle.vehicleName?.toLowerCase().includes(searchTerm) ||
-          vehicle.branch?.toLowerCase().includes(searchTerm)
+          vehicle.branch?.toLowerCase().includes(searchTerm) ||
+          vehicle.registerNumber?.toLowerCase().includes(searchTerm) ||
+          vehicle.phoneNumber?.toLowerCase().includes(searchTerm)
         );
       });
     }
 
-    // Apply branch filter
+    // Apply filters
     if (filters.branch) {
       filtered = filtered.filter(vehicle => vehicle.branch === filters.branch);
     }
 
-    // Apply designation filter
     if (filters.designation) {
       filtered = filtered.filter(vehicle => vehicle.designation === filters.designation);
     }
 
-    // Apply staff position filter
     if (filters.staffPosition) {
       filtered = filtered.filter(vehicle =>
         vehicle.staffPosition === filters.staffPosition ||
@@ -261,7 +300,6 @@ export default function AdminScreen() {
       );
     }
 
-    // Apply date range filter
     if (filters.dateRange) {
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -330,89 +368,38 @@ export default function AdminScreen() {
       }
     });
 
-    // Update state - show all filtered results
-    setFilteredVehicles(filtered);
+    // Update state
+    setVehicles(filtered);
     setTotalResults(filtered.length);
-    setVehicles(filtered); // Show all filtered results, no pagination
-  };
+  }, []);
 
 
 
-  const onSearch = () => {
-    setPage(1);
-    applyClientSideFiltering(allVehicles, activeFilters, searchText.trim(), sortBy, sortOrder);
-  };
-
-  const onSortChange = (field) => {
-    const newOrder = sortBy === field && sortOrder === 'asc' ? 'desc' : 'asc';
-    setSortBy(field);
-    setSortOrder(newOrder);
-    setPage(1);
-    applyClientSideFiltering(allVehicles, activeFilters, searchText.trim(), field, newOrder);
-  };
-
-  // Remove pagination - no longer needed
-  // const onPageChange = (newPage) => { ... }
-
-  // Simplified filtering functions
-
-  const clearAllFilters = () => {
+  // Filter management
+  const clearAllFilters = useCallback(() => {
     const clearedFilters = {
       branch: '',
       designation: '',
       staffPosition: '',
       dateRange: '',
-      searchField: 'licencePlate'
     };
     setActiveFilters(clearedFilters);
-    setSearchText('');
-    setQuickFilterActive('');
     setStatsFilter(null);
-    setPage(1);
-    applyClientSideFiltering(allVehicles, clearedFilters, '', sortBy, sortOrder);
-  };
+    setShowFilterSheet(false);
+  }, []);
 
-  const applyQuickFilter = (filterType) => {
-    let newFilters = { ...activeFilters };
-
-    switch (filterType) {
-      case 'students':
-        newFilters = { ...newFilters, designation: 'Student', staffPosition: '' };
-        break;
-      case 'staff':
-        newFilters = { ...newFilters, designation: 'Staff', staffPosition: '' };
-        break;
-      case 'hod':
-        newFilters = { ...newFilters, designation: 'Staff', staffPosition: 'HOD' };
-        break;
-      case 'lecturers':
-        newFilters = { ...newFilters, designation: 'Staff', staffPosition: 'Lecturer' };
-        break;
-      case 'recent':
-        newFilters = { ...newFilters, dateRange: 'last7days' };
-        break;
-      default:
-        return;
-    }
-
-    setQuickFilterActive(filterType);
+  const applyFilters = useCallback((newFilters, newSortBy, newSortOrder) => {
     setActiveFilters(newFilters);
-    setPage(1);
-    applyClientSideFiltering(allVehicles, newFilters, searchText.trim(), sortBy, sortOrder);
-  };
+    setSortBy(newSortBy);
+    setSortOrder(newSortOrder);
+    setShowFilterSheet(false);
+  }, []);
 
-  const removeFilter = (filterKey) => {
+  const removeFilter = useCallback((filterKey) => {
     const newFilters = { ...activeFilters };
     newFilters[filterKey] = '';
     setActiveFilters(newFilters);
-    if (filterKey === 'designation' || filterKey === 'staffPosition') {
-      setQuickFilterActive('');
-    }
-    setPage(1);
-    applyClientSideFiltering(allVehicles, newFilters, searchText.trim(), sortBy, sortOrder);
-  };
-
-  // Simplified - no advanced filter count needed
+  }, [activeFilters]);
 
   const openEditModal = (vehicle) => {
     setSelectedVehicle(vehicle);
@@ -596,14 +583,14 @@ export default function AdminScreen() {
     }
   };
 
-  const handleSignOut = async () => {
+  const handleSignOut = useCallback(async () => {
     try {
       await signOut();
     } catch (err) {
       console.error('Error signing out:', err);
       Alert.alert('Error', 'Failed to sign out');
     }
-  };
+  }, [signOut]);
 
   const showPhoto = (photoUrl, photoType = 'Photo', vehicleInfo = '') => {
     setSelectedPhoto(photoUrl);
@@ -742,7 +729,201 @@ export default function AdminScreen() {
     );
   };
 
-  const renderVehicle = ({ item }) => {
+  // Filter Bottom Sheet Component
+  const FilterBottomSheet = ({ visible, onClose, filters, sortBy, sortOrder, onApply }) => {
+    const [tempFilters, setTempFilters] = useState(filters);
+    const [tempSortBy, setTempSortBy] = useState(sortBy);
+    const [tempSortOrder, setTempSortOrder] = useState(sortOrder);
+
+    useEffect(() => {
+      setTempFilters(filters);
+      setTempSortBy(sortBy);
+      setTempSortOrder(sortOrder);
+    }, [filters, sortBy, sortOrder]);
+
+    const handleApply = () => {
+      onApply(tempFilters, tempSortBy, tempSortOrder);
+    };
+
+    const handleClear = () => {
+      const cleared = { branch: '', designation: '', staffPosition: '', dateRange: '' };
+      setTempFilters(cleared);
+      setTempSortBy('licencePlate');
+      setTempSortOrder('asc');
+    };
+
+    return (
+      <Modal visible={visible} animationType="slide" transparent={true}>
+        <View style={styles.filterSheetOverlay}>
+          <View style={styles.filterSheet}>
+            <View style={styles.filterSheetHeader}>
+              <Text style={styles.filterSheetTitle}>Filters & Sort</Text>
+              <TouchableOpacity onPress={onClose} style={styles.filterSheetClose}>
+                <Text style={styles.filterSheetCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.filterSheetContent}>
+              {/* Sort Options */}
+              <View style={styles.filterSection}>
+                <Text style={styles.filterSectionTitle}>Sort By</Text>
+                {[
+                  { key: 'licencePlate', label: 'License Plate' },
+                  { key: 'fullName', label: 'Name' },
+                  { key: 'branch', label: 'Branch' },
+                  { key: 'designation', label: 'Role' },
+                  { key: 'createdAt', label: 'Date' },
+                  { key: 'vehicleName', label: 'Vehicle' }
+                ].map((option) => (
+                  <TouchableOpacity
+                    key={option.key}
+                    style={[
+                      styles.filterOption,
+                      tempSortBy === option.key && styles.filterOptionActive
+                    ]}
+                    onPress={() => setTempSortBy(option.key)}
+                  >
+                    <Text style={[
+                      styles.filterOptionText,
+                      tempSortBy === option.key && styles.filterOptionTextActive
+                    ]}>
+                      {option.label}
+                    </Text>
+                    {tempSortBy === option.key && (
+                      <TouchableOpacity
+                        style={styles.sortOrderButton}
+                        onPress={() => setTempSortOrder(tempSortOrder === 'asc' ? 'desc' : 'asc')}
+                      >
+                        <Text style={styles.sortOrderText}>
+                          {tempSortOrder === 'asc' ? '↑' : '↓'}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Filter Options */}
+              <View style={styles.filterSection}>
+                <Text style={styles.filterSectionTitle}>Designation</Text>
+                {['Student', 'Staff'].map((designation) => (
+                  <TouchableOpacity
+                    key={designation}
+                    style={[
+                      styles.filterOption,
+                      tempFilters.designation === designation && styles.filterOptionActive
+                    ]}
+                    onPress={() => setTempFilters(prev => ({
+                      ...prev,
+                      designation: prev.designation === designation ? '' : designation,
+                      staffPosition: designation === 'Student' ? '' : prev.staffPosition
+                    }))}
+                  >
+                    <Text style={[
+                      styles.filterOptionText,
+                      tempFilters.designation === designation && styles.filterOptionTextActive
+                    ]}>
+                      {designation}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {tempFilters.designation === 'Staff' && (
+                <View style={styles.filterSection}>
+                  <Text style={styles.filterSectionTitle}>Staff Position</Text>
+                  {['HOD', 'Lecturer'].map((position) => (
+                    <TouchableOpacity
+                      key={position}
+                      style={[
+                        styles.filterOption,
+                        tempFilters.staffPosition === position && styles.filterOptionActive
+                      ]}
+                      onPress={() => setTempFilters(prev => ({
+                        ...prev,
+                        staffPosition: prev.staffPosition === position ? '' : position
+                      }))}
+                    >
+                      <Text style={[
+                        styles.filterOptionText,
+                        tempFilters.staffPosition === position && styles.filterOptionTextActive
+                      ]}>
+                        {position}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
+              <View style={styles.filterSection}>
+                <Text style={styles.filterSectionTitle}>Branch</Text>
+                {BRANCH_OPTIONS.map((branch) => (
+                  <TouchableOpacity
+                    key={branch}
+                    style={[
+                      styles.filterOption,
+                      tempFilters.branch === branch && styles.filterOptionActive
+                    ]}
+                    onPress={() => setTempFilters(prev => ({
+                      ...prev,
+                      branch: prev.branch === branch ? '' : branch
+                    }))}
+                  >
+                    <Text style={[
+                      styles.filterOptionText,
+                      tempFilters.branch === branch && styles.filterOptionTextActive
+                    ]}>
+                      {branch}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <View style={styles.filterSection}>
+                <Text style={styles.filterSectionTitle}>Date Range</Text>
+                {[
+                  { key: 'today', label: 'Today' },
+                  { key: 'last7days', label: 'Last 7 Days' },
+                  { key: 'last30days', label: 'Last 30 Days' },
+                  { key: 'thisMonth', label: 'This Month' }
+                ].map((range) => (
+                  <TouchableOpacity
+                    key={range.key}
+                    style={[
+                      styles.filterOption,
+                      tempFilters.dateRange === range.key && styles.filterOptionActive
+                    ]}
+                    onPress={() => setTempFilters(prev => ({
+                      ...prev,
+                      dateRange: prev.dateRange === range.key ? '' : range.key
+                    }))}
+                  >
+                    <Text style={[
+                      styles.filterOptionText,
+                      tempFilters.dateRange === range.key && styles.filterOptionTextActive
+                    ]}>
+                      {range.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+
+            <View style={styles.filterSheetActions}>
+              <TouchableOpacity style={styles.filterClearButton} onPress={handleClear}>
+                <Text style={styles.filterClearText}>Clear All</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.filterApplyButton} onPress={handleApply}>
+                <Text style={styles.filterApplyText}>Apply Filters</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
+  const renderVehicle = useCallback(({ item, index }) => {
     // Enhanced Debug: Log all vehicle data to identify owner photo issue
     console.log('=== ADMIN SCREEN VEHICLE DATA ===');
     console.log('License Plate:', item.licencePlate);
@@ -763,12 +944,12 @@ export default function AdminScreen() {
           </Text>
         </View>
         <Text style={styles.vehicleDetail}>Name: {item.fullName}</Text>
-        
+
         {/* Phone Number with Call Button */}
         {item.phoneNumber && (
           <View style={styles.phoneContainer}>
             <Text style={styles.phoneNumber}>📞 {item.phoneNumber}</Text>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.callButton}
               onPress={() => handleDirectCall(item.phoneNumber, `${item.licencePlate} - ${item.fullName}`)}
             >
@@ -776,7 +957,7 @@ export default function AdminScreen() {
             </TouchableOpacity>
           </View>
         )}
-        
+
         <Text style={styles.vehicleDetail}>Branch: {item.branch}</Text>
         <Text style={styles.vehicleDetail}>Designation: {item.designation}</Text>
         {item.registerNumber && (
@@ -835,12 +1016,16 @@ export default function AdminScreen() {
         </View>
       </View>
     );
-  };
+  }, []);
 
   if (!isLoaded) {
     return (
       <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color="#4a90e2" />
+        <View style={styles.loadingCard}>
+          <ActivityIndicator size="large" color="#6366f1" />
+          <Text style={styles.loadingCardText}>Initializing Admin Panel</Text>
+          <Text style={styles.loadingCardSubtext}>Please wait...</Text>
+        </View>
       </View>
     );
   }
@@ -848,178 +1033,181 @@ export default function AdminScreen() {
   if (!isAdmin) {
     return (
       <View style={[styles.container, styles.centered]}>
-        <Text style={styles.errorText}>Sorry, you don't have admin privileges</Text>
-        <Text style={styles.errorSubText}>
-          This area is restricted to college management only.
-        </Text>
-        <TouchableOpacity style={styles.backButton} onPress={handleSignOut}>
-          <Text style={styles.backButtonText}>Back to Login</Text>
-        </TouchableOpacity>
+        <View style={styles.errorCard}>
+          <Text style={styles.errorIcon}>🚫</Text>
+          <Text style={styles.errorText}>Access Restricted</Text>
+          <Text style={styles.errorSubText}>
+            This area is restricted to college management only.
+          </Text>
+          <TouchableOpacity style={styles.backButton} onPress={handleSignOut}>
+            <Text style={styles.backButtonText}>Back to Login</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      {/* Fixed Header */}
-      <View style={styles.fixedHeader}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Admin Dashboard</Text>
-        </View>
-
-        <View style={styles.actionButtons}>
-          <TouchableOpacity onPress={() => setShowLicensePlateScanner(true)} style={styles.scanButton}>
-            <Text style={styles.scanButtonText}>📷 Scan Plate</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => navigation.navigate('Registration')} style={styles.registerButton}>
-            <Text style={styles.registerText}>+ Vehicle</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setShowStatsPanel(true)} style={styles.statsButton}>
-            <Text style={styles.statsButtonText}>📊 Stats</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setShowAddAdminModal(true)} style={styles.addAdminButton}>
-            <Text style={styles.addAdminText}>+ Admin</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={handleSignOut} style={styles.signOutButton}>
-            <Text style={styles.signOutText}>Sign Out</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Stats Overview */}
-        <StatsOverview 
-          onFilterSelect={handleStatsFilterSelect}
-          activeFilter={statsFilter}
-          style={styles.statsOverview}
-        />
-
-        {/* Simplified Search Bar */}
-        <View style={styles.searchInputContainer}>
-          <TextInput
-            style={styles.compactSearchInput}
-            placeholder="Search by License Plate, Name, or Vehicle Model"
-            value={searchText}
-            onChangeText={setSearchText}
-            onSubmitEditing={onSearch}
-            returnKeyType="search"
-          />
-          <TouchableOpacity style={styles.compactSearchButton} onPress={onSearch}>
-            <Text style={styles.searchButtonText}>🔍</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Compact Quick Filters */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.compactQuickFilters}>
-          {[
-            { key: 'students', label: '🎓 Students' },
-            { key: 'staff', label: '👨‍🏫 Staff' },
-            { key: 'hod', label: '👑 HODs' },
-            { key: 'lecturers', label: '👨‍🏫 Lecturers' },
-            { key: 'recent', label: '📅 Recent' }
-          ].map((filter) => (
-            <TouchableOpacity
-              key={filter.key}
-              style={[
-                styles.compactQuickFilterChip,
-                quickFilterActive === filter.key && styles.quickFilterChipActive
-              ]}
-              onPress={() => applyQuickFilter(filter.key)}
-            >
-              <Text style={[
-                styles.compactQuickFilterText,
-                quickFilterActive === filter.key && styles.quickFilterTextActive
-              ]}>
-                {filter.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-
-        {/* Active Quick Filter Display */}
-        {quickFilterActive && (
-          <View style={styles.compactActiveFilters}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={styles.activeFiltersRow}>
-                <View style={styles.compactActiveFilterChip}>
-                  <Text style={styles.compactActiveFilterText}>
-                    {quickFilterActive === 'students' && '🎓 Students'}
-                    {quickFilterActive === 'staff' && '👨‍🏫 Staff'}
-                    {quickFilterActive === 'hod' && '👑 HODs'}
-                    {quickFilterActive === 'lecturers' && '👨‍🏫 Lecturers'}
-                    {quickFilterActive === 'recent' && '📅 Recent'}
-                  </Text>
-                  <TouchableOpacity onPress={clearAllFilters}>
-                    <Text style={styles.activeFilterRemove}>✕</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </ScrollView>
-          </View>
-        )}
-
-        {/* Compact Sort & Results */}
-        <View style={styles.compactSortContainer}>
-          <Text style={styles.compactResultsCount}>
+    <View style={styles.mainContainer}>
+      <SafeAreaView style={styles.container}>
+      {/* Header - Row 1: Title and Results Count */}
+      <View style={styles.headerRow1}>
+        <View style={styles.headerLeft}>
+          <Text style={styles.headerTitle}>Admin Dashboard</Text>
+          <Text style={styles.headerSubtitle}>
             {totalResults > 0 ? `${totalResults} result${totalResults !== 1 ? 's' : ''}` : 'No results'}
           </Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.compactSortScroll}>
-            {[
-              { key: 'licencePlate', label: 'License', icon: '🚗' },
-              { key: 'fullName', label: 'Name', icon: '👤' },
-              { key: 'branch', label: 'Branch', icon: '🏢' },
-              { key: 'designation', label: 'Role', icon: '👥' },
-              { key: 'createdAt', label: 'Date', icon: '📅' },
-              { key: 'vehicleName', label: 'Vehicle', icon: '🚙' }
-            ].map((field) => (
-              <TouchableOpacity
-                key={field.key}
-                onPress={() => onSortChange(field.key)}
-                style={[
-                  styles.compactSortButton,
-                  sortBy === field.key && styles.sortButtonActive,
-                ]}
-              >
-                <Text
-                  style={sortBy === field.key ? styles.sortTextActive : styles.compactSortText}
-                >
-                  {field.icon} {field.label}
-                  {sortBy === field.key && (
-                    <Text style={styles.sortOrderIndicator}>
-                      {sortOrder === 'asc' ? ' ↑' : ' ↓'}
-                    </Text>
-                  )}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+        </View>
+        <View style={styles.headerRight}>
+          <TouchableOpacity
+            style={styles.headerIconButton}
+            onPress={() => setShowFilterSheet(true)}
+          >
+            <Text style={styles.headerIconText}>⚙️</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.headerIconButton}
+            onPress={() => setShowStatsPanel(true)}
+          >
+            <Text style={styles.headerIconText}>📊</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.overflowMenuButton}
+            onPress={() => {/* Show overflow menu */}}
+          >
+            <Text style={styles.headerIconText}>⋯</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
-      {/* Scrollable Content */}
-      <View style={styles.scrollableContent}>
+      {/* Header - Row 2: Unified Search */}
+      <View style={styles.headerRow2}>
+        <View style={styles.searchContainer}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search by plate, name, register no., or phone"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            returnKeyType="search"
+          />
+          <TouchableOpacity style={styles.searchIcon}>
+            <Text style={styles.searchIconText}>🔍</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Active Filters Display */}
+      {Object.values(activeFilters).some(v => v) && (
+        <View style={styles.activeFiltersContainer}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {activeFilters.designation && (
+              <View style={styles.activeFilterChip}>
+                <Text style={styles.activeFilterText}>
+                  {activeFilters.designation}
+                </Text>
+                <TouchableOpacity onPress={() => removeFilter('designation')}>
+                  <Text style={styles.activeFilterRemove}>✕</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            {activeFilters.staffPosition && (
+              <View style={styles.activeFilterChip}>
+                <Text style={styles.activeFilterText}>
+                  {activeFilters.staffPosition}
+                </Text>
+                <TouchableOpacity onPress={() => removeFilter('staffPosition')}>
+                  <Text style={styles.activeFilterRemove}>✕</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            {activeFilters.branch && (
+              <View style={styles.activeFilterChip}>
+                <Text style={styles.activeFilterText}>
+                  {activeFilters.branch}
+                </Text>
+                <TouchableOpacity onPress={() => removeFilter('branch')}>
+                  <Text style={styles.activeFilterRemove}>✕</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            {activeFilters.dateRange && (
+              <View style={styles.activeFilterChip}>
+                <Text style={styles.activeFilterText}>
+                  {activeFilters.dateRange === 'today' && 'Today'}
+                  {activeFilters.dateRange === 'last7days' && 'Last 7 Days'}
+                  {activeFilters.dateRange === 'last30days' && 'Last 30 Days'}
+                  {activeFilters.dateRange === 'thisMonth' && 'This Month'}
+                </Text>
+                <TouchableOpacity onPress={() => removeFilter('dateRange')}>
+                  <Text style={styles.activeFilterRemove}>✕</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            <TouchableOpacity style={styles.clearAllChip} onPress={clearAllFilters}>
+              <Text style={styles.clearAllText}>Clear All</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      )}
+
+      {/* Content */}
+      <View style={styles.contentContainer}>
         {loading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#4a90e2" />
+            <ActivityIndicator size="large" color="#6366f1" />
             <Text style={styles.loadingText}>Loading vehicles...</Text>
           </View>
         ) : vehicles.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.noRecords}>No vehicles found.</Text>
             <Text style={styles.noRecordsSubtext}>
-              {quickFilterActive ? 'Try clearing the active filter' : 'No vehicles registered yet'}
+              {Object.values(activeFilters).some(v => v) || searchQuery ?
+                'Try adjusting your search or filters' :
+                'No vehicles registered yet'
+              }
             </Text>
           </View>
         ) : (
-          <FlatList
-            data={vehicles}
-            renderItem={renderVehicle}
-            keyExtractor={(item) => item._id}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.listContainer}
-          />
+          <Animated.View
+            style={{
+              flex: 1,
+              opacity: fadeAnim,
+              transform: [
+                { translateY: slideAnim },
+                { scale: scaleAnim }
+              ]
+            }}
+          >
+            <FlatList
+              data={vehicles}
+              renderItem={renderVehicle}
+              keyExtractor={(item) => item._id}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.listContainer}
+            />
+          </Animated.View>
         )}
       </View>
 
-      {/* Add Admin Modal */}
+      {/* FAB for Scan Plate */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => setShowLicensePlateScanner(true)}
+      >
+        <Text style={styles.fabText}>📷</Text>
+      </TouchableOpacity>
+
+      {/* Filter Bottom Sheet */}
+      <FilterBottomSheet
+        visible={showFilterSheet}
+        onClose={() => setShowFilterSheet(false)}
+        filters={activeFilters}
+        sortBy={sortBy}
+        sortOrder={sortOrder}
+        onApply={applyFilters}
+      />
+
+      {/* Modals */}
       <Modal visible={showAddAdminModal} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalView}>
@@ -1070,7 +1258,6 @@ export default function AdminScreen() {
       <Modal visible={showPhotoModal} animationType="fade" transparent={true}>
         <View style={styles.photoModalOverlay}>
           <View style={styles.photoModalContent}>
-            {/* Enhanced Header with photo info */}
             <View style={styles.photoModalHeader}>
               <View style={styles.photoModalInfo}>
                 <Text style={styles.photoModalTitle}>
@@ -1084,17 +1271,6 @@ export default function AdminScreen() {
               </View>
               <View style={styles.photoModalActions}>
                 <TouchableOpacity
-                  style={styles.photoActionButton}
-                  onPress={() => {
-                    // Add functionality to download or share photo
-                    Alert.alert('Photo Actions', 'Photo viewing options', [
-                      { text: 'Close', style: 'cancel' }
-                    ]);
-                  }}
-                >
-                  <Text style={styles.photoActionText}>⋯</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
                   style={styles.closePhotoButton}
                   onPress={() => setShowPhotoModal(false)}
                 >
@@ -1103,21 +1279,16 @@ export default function AdminScreen() {
               </View>
             </View>
 
-            {/* Photo with loading indicator */}
             {selectedPhoto && (
               <View style={styles.photoContainer}>
                 <Image
                   source={{ uri: selectedPhoto }}
                   style={styles.fullPhoto}
                   resizeMode="contain"
-                  onLoadStart={() => console.log('Loading photo...')}
-                  onLoadEnd={() => console.log('Photo loaded')}
-                  onError={(error) => console.log('Photo load error:', error)}
                 />
               </View>
             )}
 
-            {/* Photo Info Footer */}
             <View style={styles.photoModalFooter}>
               <Text style={styles.photoModalFooterText}>
                 Tap and hold to save • Pinch to zoom
@@ -1146,7 +1317,6 @@ export default function AdminScreen() {
               onChangeText={(val) => handleFormChange('fullName', val)}
             />
 
-            {/* Phone Number Input */}
             <View style={styles.phoneSection}>
               <Text style={styles.sectionLabel}>📞 Contact Information</Text>
               <TextInput
@@ -1170,7 +1340,6 @@ export default function AdminScreen() {
               onChangeText={(val) => handleFormChange('vehicleName', val)}
             />
 
-            {/* Vehicle Type Dropdown */}
             <TouchableOpacity
               style={styles.editDropdownButton}
               onPress={() => setShowEditVehicleTypeModal(true)}
@@ -1181,7 +1350,6 @@ export default function AdminScreen() {
               <Text style={styles.editDropdownArrow}>▼</Text>
             </TouchableOpacity>
 
-            {/* Branch/Department Dropdown */}
             <TouchableOpacity
               style={styles.editDropdownButton}
               onPress={() => setShowEditBranchModal(true)}
@@ -1192,7 +1360,6 @@ export default function AdminScreen() {
               <Text style={styles.editDropdownArrow}>▼</Text>
             </TouchableOpacity>
 
-            {/* Designation Dropdown */}
             <TouchableOpacity
               style={styles.editDropdownButton}
               onPress={() => setShowEditDesignationModal(true)}
@@ -1203,7 +1370,6 @@ export default function AdminScreen() {
               <Text style={styles.editDropdownArrow}>▼</Text>
             </TouchableOpacity>
 
-            {/* Conditional fields based on designation */}
             {formData.designation === 'Student' && (
               <View style={styles.editConditionalSection}>
                 <Text style={styles.editSectionLabel}>Student Information</Text>
@@ -1219,8 +1385,6 @@ export default function AdminScreen() {
                   Format: 103 + Branch Code + Year + Roll Number{'\n'}
                   Example: 103CS23062 (103=College, CS=Computer Science, 23=Year 2023, 062=Roll No.)
                 </Text>
-
-
               </View>
             )}
 
@@ -1296,18 +1460,12 @@ export default function AdminScreen() {
         title="Select Vehicle Type"
       />
 
-
-
-      <Footer />
-
-      {/* License Plate Scanner Modal */}
       <LicensePlateScanner
         visible={showLicensePlateScanner}
         onClose={() => setShowLicensePlateScanner(false)}
         onVehicleFound={handleVehicleFound}
       />
 
-      {/* Vehicle Details Modal */}
       <VehicleDetailsModal
         visible={showVehicleDetailsModal}
         onClose={() => setShowVehicleDetailsModal(false)}
@@ -1315,289 +1473,806 @@ export default function AdminScreen() {
         onEdit={handleEditScannedVehicle}
       />
 
-      {/* Detailed Stats Panel Modal */}
       <Modal visible={showStatsPanel} animationType="slide" transparent={false}>
         <View style={styles.statsModalContainer}>
           <View style={styles.statsModalHeader}>
             <Text style={styles.statsModalTitle}>Detailed Statistics</Text>
-            <TouchableOpacity 
-              style={styles.statsModalCloseButton} 
+            <TouchableOpacity
+              style={styles.statsModalCloseButton}
               onPress={() => setShowStatsPanel(false)}
             >
               <Text style={styles.statsModalCloseText}>✕</Text>
             </TouchableOpacity>
           </View>
-          <StatsPanel 
+          <StatsPanel
             onFilterSelect={(type, value) => {
               handleStatsFilterSelect(type, value);
-              setShowStatsPanel(false); // Close modal after selecting filter
+              setShowStatsPanel(false);
             }}
             activeFilter={statsFilter}
           />
         </View>
       </Modal>
+
+      </SafeAreaView>
+      <Footer />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  mainContainer: {
+    flex: 1,
+  },
   container: {
     flex: 1,
-    backgroundColor: '#f0f2f5',
+    backgroundColor: '#f8fafc',
   },
-  fixedHeader: {
-    backgroundColor: '#f0f2f5',
-    paddingTop: 50,
-    paddingHorizontal: 16,
-    paddingBottom: 10,
+  contentContainer: {
+    flex: 1,
+  },
+  // Header Row 1 Styles
+  headerRow1: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
-    shadowColor: '#000',
+    borderBottomColor: '#e2e8f0',
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  headerLeft: {
+    flex: 1,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#1e293b',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  headerSubtitle: {
+    fontSize: 16,
+    color: '#64748b',
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+  headerIconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#f8fafc',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#6366f1',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
+  headerIconText: {
+    fontSize: 20,
+    color: '#6366f1',
+    fontWeight: '700',
+  },
+  overflowMenuButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#f8fafc',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+
+  // Header Row 2 Styles
+  headerRow2: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  searchInput: {
+    flex: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    fontSize: 16,
+    color: '#1e293b',
+    fontWeight: '500',
+    letterSpacing: 0.2,
+  },
+  searchIcon: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  searchIconText: {
+    fontSize: 18,
+    color: '#6366f1',
+    fontWeight: '700',
+  },
+
+  // Active Filters Styles
+  activeFiltersContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  activeFilterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fef3c7',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#f59e0b',
+    shadowColor: '#f59e0b',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  activeFilterText: {
+    fontSize: 13,
+    color: '#92400e',
+    fontWeight: '700',
+    marginRight: 6,
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  activeFilterRemove: {
+    fontSize: 16,
+    color: '#92400e',
+    fontWeight: '800',
+  },
+  clearAllChip: {
+    backgroundColor: '#ef4444',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    shadowColor: '#ef4444',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  clearAllText: {
+    fontSize: 13,
+    color: '#ffffff',
+    fontWeight: '800',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+
+  // FAB Styles
+  fab: {
+    position: 'absolute',
+    bottom: 100,
+    right: 20,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#f59e0b',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#f59e0b',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  fabText: {
+    fontSize: 24,
+    color: '#ffffff',
+    fontWeight: '800',
+  },
+
+  // Filter Sheet Styles
+  filterSheetOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  filterSheet: {
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '80%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 16,
+  },
+  filterSheetHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    backgroundColor: '#f8fafc',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+  },
+  filterSheetTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#1e293b',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+  filterSheetClose: {
+    padding: 8,
+  },
+  filterSheetCloseText: {
+    fontSize: 24,
+    color: '#64748b',
+    fontWeight: '800',
+  },
+  filterSheetContent: {
+    padding: 20,
+    maxHeight: 400,
+  },
+  filterSection: {
+    marginBottom: 24,
+  },
+  filterSectionTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#1e293b',
+    marginBottom: 16,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+  filterOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: '#f8fafc',
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  filterOptionActive: {
+    backgroundColor: '#6366f1',
+    borderColor: '#6366f1',
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  filterOptionText: {
+    fontSize: 15,
+    color: '#64748b',
+    fontWeight: '600',
+    letterSpacing: 0.2,
+  },
+  filterOptionTextActive: {
+    color: '#ffffff',
+    fontWeight: '700',
+  },
+  sortOrderButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 8,
+  },
+  sortOrderText: {
+    fontSize: 14,
+    color: '#ffffff',
+    fontWeight: '800',
+  },
+  filterSheetActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+    backgroundColor: '#f8fafc',
+    gap: 12,
+  },
+  filterClearButton: {
+    flex: 1,
+    backgroundColor: '#64748b',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+    shadowColor: '#64748b',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  filterClearText: {
+    fontSize: 15,
+    color: '#ffffff',
+    fontWeight: '800',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  filterApplyButton: {
+    flex: 1,
+    backgroundColor: '#10b981',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  filterApplyText: {
+    fontSize: 15,
+    color: '#ffffff',
+    fontWeight: '800',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  fixedHeader: {
+    backgroundColor: '#ffffff',
+    paddingTop: 50,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 6,
+  },
   scrollableContent: {
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
   },
   centered: {
     justifyContent: 'center',
     alignItems: 'center',
   },
   header: {
-    backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 12,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    backgroundColor: '#ffffff',
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 16,
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: 12,
+    elevation: 8,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
   actionButtons: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginBottom: 10,
-    backgroundColor: '#fff',
-    padding: 12,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    marginBottom: 16,
+    backgroundColor: '#ffffff',
+    padding: 16,
+    borderRadius: 16,
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
   statsOverview: {
-    marginBottom: 8,
+    marginBottom: 16,
   },
   scanButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    backgroundColor: '#ff6b35',
-    borderRadius: 10,
-    shadowColor: '#ff6b35',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    backgroundColor: '#f59e0b',
+    borderRadius: 12,
+    shadowColor: '#f59e0b',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 6,
+    minWidth: 80,
+    alignItems: 'center',
   },
   scanButtonText: {
-    color: 'white',
+    color: '#ffffff',
     fontWeight: '700',
-    fontSize: 14,
+    fontSize: 13,
+    textAlign: 'center',
   },
   registerButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    backgroundColor: '#4a90e2',
-    borderRadius: 10,
-    shadowColor: '#4a90e2',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    backgroundColor: '#6366f1',
+    borderRadius: 12,
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 6,
+    minWidth: 80,
+    alignItems: 'center',
   },
   registerText: {
-    color: 'white',
+    color: '#ffffff',
     fontWeight: '700',
-    fontSize: 14,
+    fontSize: 13,
+    textAlign: 'center',
   },
   addAdminButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    backgroundColor: '#28a745',
-    borderRadius: 10,
-    shadowColor: '#28a745',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    backgroundColor: '#10b981',
+    borderRadius: 12,
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 6,
+    minWidth: 80,
+    alignItems: 'center',
   },
   addAdminText: {
-    color: 'white',
+    color: '#ffffff',
     fontWeight: '700',
-    fontSize: 14,
+    fontSize: 13,
+    textAlign: 'center',
   },
   statsButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    backgroundColor: '#17a2b8',
-    borderRadius: 10,
-    shadowColor: '#17a2b8',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    backgroundColor: '#8b5cf6',
+    borderRadius: 12,
+    shadowColor: '#8b5cf6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 6,
+    minWidth: 80,
+    alignItems: 'center',
   },
   statsButtonText: {
-    color: 'white',
+    color: '#ffffff',
     fontWeight: '700',
-    fontSize: 14,
+    fontSize: 13,
+    textAlign: 'center',
   },
   signOutButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    backgroundColor: '#f44336',
-    borderRadius: 10,
-    shadowColor: '#f44336',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    backgroundColor: '#ef4444',
+    borderRadius: 12,
+    shadowColor: '#ef4444',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 6,
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  signOutText: {
+    color: '#ffffff',
+    fontWeight: '700',
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  errorText: {
+    fontSize: 24,
+    color: '#ef4444',
+    marginBottom: 16,
+    textAlign: 'center',
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  errorSubText: {
+    fontSize: 17,
+    color: '#64748b',
+    marginBottom: 32,
+    textAlign: 'center',
+    paddingHorizontal: 24,
+    lineHeight: 26,
+    fontWeight: '600',
+  },
+  backButton: {
+    backgroundColor: '#6366f1',
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 12,
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  backButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  loadingCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 24,
+    padding: 32,
+    alignItems: 'center',
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  loadingCardText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1e293b',
+    marginTop: 16,
+    letterSpacing: 0.5,
+    textAlign: 'center',
+  },
+  loadingCardSubtext: {
+    fontSize: 14,
+    color: '#64748b',
+    marginTop: 8,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  errorCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 24,
+    padding: 32,
+    alignItems: 'center',
+    shadowColor: '#ef4444',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  errorIcon: {
+    fontSize: 48,
+    marginBottom: 16,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#1e293b',
+    textAlign: 'center',
+    letterSpacing: 1.2,
+    marginBottom: 4,
+    textTransform: 'uppercase',
+  },
+
+  // Enhanced Search Styles
+  searchInputContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    marginBottom: 20,
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  compactSearchInput: {
+    flex: 1,
+    padding: 18,
+    fontSize: 16,
+    color: '#1e293b',
+    fontWeight: '500',
+    letterSpacing: 0.2,
+  },
+  compactSearchButton: {
+    paddingHorizontal: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#6366f1',
+    borderTopRightRadius: 20,
+    borderBottomRightRadius: 20,
+    shadowColor: '#6366f1',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 3,
   },
-  signOutText: {
-    color: 'white',
+  searchButtonText: {
+    fontSize: 18,
+    color: '#ffffff',
     fontWeight: '700',
-    fontSize: 14,
-  },
-  errorText: {
-    fontSize: 20,
-    color: '#f44336',
-    marginBottom: 10,
-    textAlign: 'center',
-    fontWeight: '600',
-  },
-  errorSubText: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 30,
-    textAlign: 'center',
-    paddingHorizontal: 20,
-  },
-  backButton: {
-    backgroundColor: '#4a90e2',
-    paddingHorizontal: 30,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  backButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#2c3e50',
-    textAlign: 'center',
-  },
-
-  // Simplified Search Styles
-  compactSearchInput: {
-    flex: 1,
-    padding: 12,
-    fontSize: 14,
-    borderRadius: 10,
-  },
-  compactSearchButton: {
-    paddingHorizontal: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#4a90e2',
-    borderTopRightRadius: 10,
-    borderBottomRightRadius: 10,
   },
 
   compactQuickFilters: {
-    marginBottom: 8,
+    marginBottom: 20,
     flexGrow: 0,
   },
   compactQuickFilterChip: {
-    backgroundColor: '#f8f9fa',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 15,
-    marginRight: 6,
+    backgroundColor: '#f8fafc',
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 24,
+    marginRight: 10,
     borderWidth: 1,
-    borderColor: '#e9ecef',
+    borderColor: '#e2e8f0',
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  quickFilterChipActive: {
+    backgroundColor: '#6366f1',
+    borderColor: '#6366f1',
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+    transform: [{ scale: 1.05 }],
   },
   compactQuickFilterText: {
-    fontSize: 11,
-    color: '#495057',
-    fontWeight: '500',
+    fontSize: 14,
+    color: '#64748b',
+    fontWeight: '700',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+  quickFilterTextActive: {
+    color: '#ffffff',
   },
 
   compactActiveFilters: {
-    marginBottom: 8,
+    marginBottom: 20,
   },
   compactActiveFilterChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff3cd',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginRight: 6,
+    backgroundColor: '#fef3c7',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 20,
+    marginRight: 10,
     borderWidth: 1,
-    borderColor: '#ffc107',
+    borderColor: '#f59e0b',
+    shadowColor: '#f59e0b',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
   compactActiveFilterText: {
-    fontSize: 10,
-    color: '#856404',
-    fontWeight: '500',
-    marginRight: 4,
+    fontSize: 13,
+    color: '#92400e',
+    fontWeight: '700',
+    marginRight: 8,
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
   },
-  compactClearAllButton: {
-    backgroundColor: '#ffc107',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginLeft: 4,
+  activeFilterRemove: {
+    fontSize: 18,
+    color: '#92400e',
+    fontWeight: '800',
   },
 
   compactSortContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 5,
+    marginBottom: 20,
+    backgroundColor: '#ffffff',
+    padding: 18,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
   },
   compactResultsCount: {
-    fontSize: 12,
-    color: '#6c757d',
-    fontWeight: '500',
-    marginRight: 10,
+    fontSize: 15,
+    color: '#64748b',
+    fontWeight: '700',
+    marginRight: 16,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
   },
   compactSortScroll: {
     flex: 1,
     flexGrow: 0,
   },
   compactSortButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 15,
-    backgroundColor: '#f8f9fa',
-    marginRight: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 24,
+    backgroundColor: '#f8fafc',
+    marginRight: 10,
     borderWidth: 1,
-    borderColor: '#e9ecef',
+    borderColor: '#e2e8f0',
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  sortButtonActive: {
+    backgroundColor: '#6366f1',
+    borderColor: '#6366f1',
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+    transform: [{ scale: 1.05 }],
   },
   compactSortText: {
-    color: '#495057',
+    color: '#64748b',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  sortTextActive: {
+    color: '#ffffff',
+    fontWeight: '800',
+  },
+  sortOrderIndicator: {
     fontSize: 11,
-    fontWeight: '500',
+    fontWeight: 'bold',
   },
 
   // Content Styles
@@ -1605,29 +2280,43 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 50,
+    paddingVertical: 60,
   },
   loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#6c757d',
-    fontWeight: '500',
+    marginTop: 16,
+    fontSize: 18,
+    color: '#64748b',
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 50,
-    paddingHorizontal: 20,
+    paddingVertical: 60,
+    paddingHorizontal: 24,
+  },
+  noRecords: {
+    textAlign: 'center',
+    fontSize: 22,
+    color: '#1e293b',
+    fontWeight: '800',
+    marginBottom: 12,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
   },
   noRecordsSubtext: {
-    fontSize: 14,
-    color: '#6c757d',
+    fontSize: 16,
+    color: '#64748b',
     textAlign: 'center',
     marginTop: 8,
+    lineHeight: 24,
+    letterSpacing: 0.3,
+    fontWeight: '600',
   },
   listContainer: {
-    paddingBottom: 20,
+    paddingBottom: 24,
   },
   // Enhanced Search Styles
   searchContainer: {
@@ -1704,208 +2393,297 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   itemContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 15,
-    padding: 18,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    elevation: 4,
-    borderLeftWidth: 4,
-    borderLeftColor: '#4a90e2',
+    backgroundColor: '#ffffff',
+    borderRadius: 24,
+    padding: 24,
+    marginBottom: 20,
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderLeftWidth: 6,
+    borderLeftColor: '#6366f1',
   },
   vehicleHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 16,
   },
   plate: {
-    fontWeight: 'bold',
-    fontSize: 18,
-    color: '#333',
+    fontWeight: '900',
+    fontSize: 22,
+    color: '#1e293b',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
   },
   dateText: {
-    fontSize: 12,
-    color: '#999',
+    fontSize: 14,
+    color: '#64748b',
+    fontWeight: '600',
+    backgroundColor: '#f1f5f9',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
   vehicleDetail: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 3,
+    fontSize: 16,
+    color: '#475569',
+    marginBottom: 8,
+    fontWeight: '600',
+    lineHeight: 22,
+    letterSpacing: 0.2,
   },
   phoneContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#e7f3ff',
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 8,
-    borderLeftWidth: 3,
-    borderLeftColor: '#4a90e2',
-  },
-  phoneNumber: {
-    fontSize: 14,
-    color: '#4a90e2',
-    fontWeight: '600',
-    fontFamily: 'monospace',
-    flex: 1,
-  },
-  callButton: {
-    backgroundColor: '#28a745',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    shadowColor: '#28a745',
+    backgroundColor: '#eff6ff',
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#dbeafe',
+    borderLeftWidth: 5,
+    borderLeftColor: '#6366f1',
+    shadowColor: '#6366f1',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
     elevation: 2,
   },
+  phoneNumber: {
+    fontSize: 17,
+    color: '#6366f1',
+    fontWeight: '800',
+    fontFamily: 'monospace',
+    flex: 1,
+    letterSpacing: 0.8,
+  },
+  callButton: {
+    backgroundColor: '#10b981',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 12,
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
+  },
   callButtonText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '700',
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 0.4,
   },
   // Photo Section Styles - Button Only
   photoSection: {
-    marginTop: 12,
-    marginBottom: 8,
+    marginTop: 20,
+    marginBottom: 16,
   },
   photoSectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#495057',
-    marginBottom: 8,
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#1e293b',
+    marginBottom: 14,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
   },
   photoButtonsContainer: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 14,
     flexWrap: 'wrap',
   },
   photoViewButton: {
-    backgroundColor: '#4a90e2',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    shadowColor: '#4a90e2',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 2,
+    backgroundColor: '#6366f1',
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    borderRadius: 16,
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
     flex: 1,
-    minWidth: 120,
+    minWidth: 150,
+    alignItems: 'center',
   },
   photoViewButtonText: {
-    fontSize: 12,
-    color: '#fff',
-    fontWeight: '600',
+    fontSize: 14,
+    color: '#ffffff',
+    fontWeight: '800',
     textAlign: 'center',
+    letterSpacing: 0.4,
   },
   photoUnavailableButton: {
-    backgroundColor: '#f8f9fa',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
+    backgroundColor: '#f8fafc',
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#e9ecef',
+    borderColor: '#e2e8f0',
     flex: 1,
-    minWidth: 120,
+    minWidth: 150,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   photoUnavailableText: {
-    fontSize: 12,
-    color: '#6c757d',
-    fontWeight: '500',
+    fontSize: 14,
+    color: '#94a3b8',
+    fontWeight: '700',
     textAlign: 'center',
+    letterSpacing: 0.3,
   },
   // Pagination removed - showing all results
   itemButtons: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    marginTop: 10,
+    marginTop: 20,
+    gap: 14,
   },
   editBtn: {
-    backgroundColor: '#28a745',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 6,
-    marginRight: 8,
+    backgroundColor: '#10b981',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 14,
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+    minWidth: 90,
+    alignItems: 'center',
   },
   editText: {
-    color: '#fff',
-    fontWeight: '600',
+    color: '#ffffff',
+    fontWeight: '800',
+    fontSize: 15,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
   },
   deleteBtn: {
-    backgroundColor: '#dc3545',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 6,
+    backgroundColor: '#ef4444',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 14,
+    shadowColor: '#ef4444',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+    minWidth: 90,
+    alignItems: 'center',
   },
   deleteText: {
-    color: '#fff',
-    fontWeight: '600',
+    color: '#ffffff',
+    fontWeight: '800',
+    fontSize: 15,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0,0,0,0.8)',
     justifyContent: 'center',
-    padding: 20,
+    padding: 28,
   },
   modalView: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 20,
-    maxHeight: '80%',
+    backgroundColor: '#ffffff',
+    borderRadius: 24,
+    padding: 28,
+    maxHeight: '90%',
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 24 },
+    shadowOpacity: 0.4,
+    shadowRadius: 32,
+    elevation: 20,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 10,
+    fontSize: 26,
+    fontWeight: '900',
+    marginBottom: 16,
     textAlign: 'center',
-    color: '#333',
+    color: '#1e293b',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
   },
   modalSubtitle: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: 16,
+    color: '#64748b',
     textAlign: 'center',
-    marginBottom: 20,
-    paddingHorizontal: 10,
+    marginBottom: 28,
+    paddingHorizontal: 16,
+    lineHeight: 24,
+    fontWeight: '600',
   },
   modalInput: {
     borderWidth: 1,
-    borderColor: '#ddd',
-    padding: 12,
-    borderRadius: 8,
+    borderColor: '#e2e8f0',
+    padding: 18,
+    borderRadius: 16,
     fontSize: 16,
-    marginBottom: 15,
-    backgroundColor: '#f9f9f9',
+    marginBottom: 18,
+    backgroundColor: '#f8fafc',
+    color: '#1e293b',
+    fontWeight: '600',
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
   },
   modalButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 20,
+    marginTop: 28,
+    gap: 16,
   },
   modalButton: {
     flex: 1,
-    padding: 15,
-    borderRadius: 8,
-    marginHorizontal: 5,
+    padding: 18,
+    borderRadius: 16,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
   saveButton: {
-    backgroundColor: '#28a745',
+    backgroundColor: '#10b981',
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 8,
   },
   cancelButton: {
-    backgroundColor: '#6c757d',
+    backgroundColor: '#64748b',
+    shadowColor: '#64748b',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 8,
   },
   buttonText: {
-    color: '#fff',
-    fontWeight: 'bold',
+    color: '#ffffff',
+    fontWeight: '800',
     textAlign: 'center',
     fontSize: 16,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
   },
   photoModalOverlay: {
     flex: 1,
@@ -1915,68 +2693,73 @@ const styles = StyleSheet.create({
   },
   photoModalContent: {
     width: '95%',
-    height: '85%',
-    backgroundColor: '#fff',
-    borderRadius: 15,
+    height: '90%',
+    backgroundColor: '#ffffff',
+    borderRadius: 24,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10,
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 20 },
+    shadowOpacity: 0.5,
+    shadowRadius: 32,
+    elevation: 20,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
   photoModalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    backgroundColor: '#f8f9fa',
+    paddingHorizontal: 28,
+    paddingVertical: 20,
+    backgroundColor: '#f8fafc',
     borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
+    borderBottomColor: '#e2e8f0',
   },
   photoModalInfo: {
     flex: 1,
   },
   photoModalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#2c3e50',
-    marginBottom: 2,
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#1e293b',
+    marginBottom: 6,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
   },
   photoModalSubtitle: {
-    fontSize: 14,
-    color: '#6c757d',
-    fontWeight: '500',
+    fontSize: 16,
+    color: '#64748b',
+    fontWeight: '600',
+    letterSpacing: 0.3,
   },
   closePhotoButton: {
-    backgroundColor: '#f44336',
-    borderRadius: 20,
-    width: 40,
-    height: 40,
+    backgroundColor: '#ef4444',
+    borderRadius: 24,
+    width: 48,
+    height: 48,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#f44336',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowColor: '#ef4444',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
   },
   closePhotoText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
+    color: '#ffffff',
+    fontSize: 20,
+    fontWeight: '800',
   },
   photoContainer: {
     flex: 1,
-    padding: 10,
+    padding: 16,
     justifyContent: 'center',
     alignItems: 'center',
   },
   fullPhoto: {
     width: '100%',
     height: '100%',
-    borderRadius: 8,
+    borderRadius: 12,
   },
   // Edit form dropdown styles
   editDropdownButton: {
@@ -1984,24 +2767,32 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 15,
-    backgroundColor: '#f9f9f9',
+    borderColor: '#e2e8f0',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    backgroundColor: '#f8fafc',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   editDropdownText: {
     fontSize: 16,
-    color: '#333',
+    color: '#1e293b',
     flex: 1,
+    fontWeight: '500',
   },
   editPlaceholderText: {
-    color: '#999',
+    color: '#94a3b8',
+    fontWeight: '400',
   },
   editDropdownArrow: {
-    fontSize: 12,
-    color: '#666',
-    marginLeft: 10,
+    fontSize: 14,
+    color: '#64748b',
+    marginLeft: 12,
+    fontWeight: '600',
   },
   editConditionalSection: {
     backgroundColor: '#fff3cd',
@@ -2062,126 +2853,145 @@ const styles = StyleSheet.create({
   // Edit dropdown modal styles
   editDropdownModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   editDropdownModal: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    width: '85%',
-    maxHeight: '70%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    backgroundColor: '#ffffff',
+    borderRadius: 24,
+    width: '90%',
+    maxHeight: '75%',
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowRadius: 20,
+    elevation: 16,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
   editDropdownHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
+    padding: 28,
     borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
+    borderBottomColor: '#e2e8f0',
+    backgroundColor: '#f8fafc',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
   },
   editDropdownTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#212529',
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#1e293b',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
   },
   editCloseButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: '#f8f9fa',
+    padding: 12,
+    borderRadius: 24,
+    backgroundColor: '#f1f5f9',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
   editCloseButtonText: {
-    fontSize: 16,
-    color: '#6c757d',
-    fontWeight: 'bold',
+    fontSize: 18,
+    color: '#64748b',
+    fontWeight: '800',
   },
   editDropdownItem: {
-    padding: 16,
+    padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#f8f9fa',
+    borderBottomColor: '#f1f5f9',
   },
   editDropdownItemText: {
-    fontSize: 16,
-    color: '#212529',
+    fontSize: 17,
+    color: '#1e293b',
+    fontWeight: '600',
+    letterSpacing: 0.2,
   },
 
   // Enhanced Photo Modal Styles
   photoActionButton: {
-    backgroundColor: '#6c757d',
+    backgroundColor: '#64748b',
     borderRadius: 20,
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#6c757d',
+    shadowColor: '#64748b',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.25,
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 4,
   },
   photoActionText: {
-    color: '#fff',
+    color: '#ffffff',
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   photoModalFooter: {
-    padding: 15,
+    padding: 18,
     borderTopWidth: 1,
-    borderTopColor: '#e9ecef',
+    borderTopColor: '#e2e8f0',
     alignItems: 'center',
+    backgroundColor: '#f8fafc',
   },
   photoModalFooterText: {
-    fontSize: 12,
-    color: '#6c757d',
+    fontSize: 13,
+    color: '#64748b',
     fontStyle: 'italic',
+    textAlign: 'center',
+    lineHeight: 18,
+    letterSpacing: 0.2,
   },
   // Stats modal styles
   statsModalContainer: {
     flex: 1,
-    backgroundColor: '#f0f2f5',
+    backgroundColor: '#f8fafc',
   },
   statsModalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    paddingTop: 50,
-    backgroundColor: '#fff',
+    paddingHorizontal: 24,
+    paddingVertical: 18,
+    paddingTop: 60,
+    backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderBottomColor: '#e2e8f0',
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 6,
   },
   statsModalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#2c3e50',
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#1e293b',
+    letterSpacing: 0.5,
   },
   statsModalCloseButton: {
-    backgroundColor: '#f44336',
+    backgroundColor: '#ef4444',
     borderRadius: 20,
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#f44336',
-    shadowOffset: { width: 0, height: 2 },
+    shadowColor: '#ef4444',
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: 6,
+    elevation: 6,
   },
   statsModalCloseText: {
-    color: '#fff',
+    color: '#ffffff',
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
 });
