@@ -99,6 +99,7 @@ export default function AdminScreen() {
   const [showEditDesignationModal, setShowEditDesignationModal] = useState(false);
   const [showEditStaffPositionModal, setShowEditStaffPositionModal] = useState(false);
   const [showEditVehicleTypeModal, setShowEditVehicleTypeModal] = useState(false);
+  const [showOverflowMenu, setShowOverflowMenu] = useState(false);
 
   // Data state
   const [selectedVehicle, setSelectedVehicle] = useState(null);
@@ -1073,7 +1074,7 @@ export default function AdminScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.overflowMenuButton}
-            onPress={() => {/* Show overflow menu */}}
+            onPress={() => setShowOverflowMenu(true)}
           >
             <Text style={styles.headerIconText}>⋯</Text>
           </TouchableOpacity>
@@ -1491,6 +1492,66 @@ export default function AdminScreen() {
             }}
             activeFilter={statsFilter}
           />
+        </View>
+      </Modal>
+
+      {/* Overflow Menu Modal */}
+      <Modal visible={showOverflowMenu} animationType="fade" transparent={true}>
+        <View style={styles.overflowMenuOverlay}>
+          <View style={styles.overflowMenu}>
+            <View style={styles.overflowMenuHeader}>
+              <Text style={styles.overflowMenuTitle}>Menu</Text>
+              <TouchableOpacity
+                style={styles.overflowMenuClose}
+                onPress={() => setShowOverflowMenu(false)}
+              >
+                <Text style={styles.overflowMenuCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.overflowMenuContent}>
+              <TouchableOpacity
+                style={styles.overflowMenuItem}
+                onPress={() => {
+                  setShowOverflowMenu(false);
+                  setShowAddAdminModal(true);
+                }}
+              >
+                <Text style={styles.overflowMenuItemIcon}>👑</Text>
+                <View style={styles.overflowMenuItemContent}>
+                  <Text style={styles.overflowMenuItemTitle}>Add Admin</Text>
+                  <Text style={styles.overflowMenuItemSubtitle}>Grant admin privileges to a user</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.overflowMenuItem}
+                onPress={() => {
+                  setShowOverflowMenu(false);
+                  debugToken();
+                }}
+              >
+                <Text style={styles.overflowMenuItemIcon}>🔧</Text>
+                <View style={styles.overflowMenuItemContent}>
+                  <Text style={styles.overflowMenuItemTitle}>Debug Token</Text>
+                  <Text style={styles.overflowMenuItemSubtitle}>Check authentication status</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.overflowMenuItem}
+                onPress={() => {
+                  setShowOverflowMenu(false);
+                  handleSignOut();
+                }}
+              >
+                <Text style={styles.overflowMenuItemIcon}>🚪</Text>
+                <View style={styles.overflowMenuItemContent}>
+                  <Text style={styles.overflowMenuItemTitle}>Sign Out</Text>
+                  <Text style={styles.overflowMenuItemSubtitle}>Log out of admin panel</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       </Modal>
 
@@ -2993,5 +3054,86 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 18,
     fontWeight: '700',
+  },
+
+  // Overflow Menu Styles
+  overflowMenuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  overflowMenu: {
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    width: '85%',
+    maxWidth: 320,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 15,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  overflowMenuHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    backgroundColor: '#f8fafc',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+  },
+  overflowMenuTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#1e293b',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+  overflowMenuClose: {
+    padding: 8,
+  },
+  overflowMenuCloseText: {
+    fontSize: 20,
+    color: '#64748b',
+    fontWeight: '800',
+  },
+  overflowMenuContent: {
+    paddingVertical: 8,
+  },
+  overflowMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  overflowMenuItemIcon: {
+    fontSize: 24,
+    marginRight: 16,
+    width: 32,
+    textAlign: 'center',
+  },
+  overflowMenuItemContent: {
+    flex: 1,
+  },
+  overflowMenuItemTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1e293b',
+    letterSpacing: 0.2,
+  },
+  overflowMenuItemSubtitle: {
+    fontSize: 13,
+    color: '#64748b',
+    fontWeight: '500',
+    marginTop: 2,
+    lineHeight: 16,
   },
 });
