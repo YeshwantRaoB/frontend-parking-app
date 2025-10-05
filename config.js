@@ -1,5 +1,5 @@
 // API Configuration
-export const API_BASE_URL = 'http://10.222.177.57:5000';
+export const API_BASE_URL = 'https://server-parking-app.vercel.app/';
 
 // Use localhost for web/simulator testing:
 // export const API_BASE_URL = 'http://localhost:5000';

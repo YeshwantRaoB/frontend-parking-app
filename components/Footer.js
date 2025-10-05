@@ -159,7 +159,7 @@ export default function Footer() {
               KPT Parking Manager
             </Text>
             <Text style={[styles.subtitle, isDark && styles.subtitleDark]}>
-              v2.10 • Smart Campus Solutions
+              v2.12 • Smart Campus Solutions
             </Text>
           </View>
 
