@@ -9,6 +9,8 @@ import {
 } from '@clerk/clerk-expo';
 import * as SecureStore from 'expo-secure-store';
 import * as WebBrowser from 'expo-web-browser';
+import * as Notifications from 'expo-notifications';
+import { API_BASE_URL } from './config';
 
 // Import screens
 import LoginScreen from './screens/LoginScreen';
@@ -48,10 +50,64 @@ const isUserAdmin = (user) => {
   return user?.publicMetadata?.role === 'admin';
 };
 
+// Notification setup
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+
+// Register for push notifications
+const registerForPushNotificationsAsync = async (getToken) => {
+  try {
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+
+    if (finalStatus !== 'granted') {
+      console.log('Failed to get push token for push notification!');
+      return;
+    }
+
+    const token = (await Notifications.getExpoPushTokenAsync()).data;
+    console.log('Push token:', token);
+
+    // Send token to server
+    const authToken = await getToken();
+    if (authToken) {
+      await fetch(`${API_BASE_URL}/register-push-token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({ pushToken: token }),
+      });
+    }
+
+    return token;
+  } catch (error) {
+    console.error('Error registering for push notifications:', error);
+  }
+};
+
 // Main app navigation
 function AppContent() {
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn, getToken } = useAuth();
   const { user, isLoaded: userLoaded } = useUser();
+
+  // Register for push notifications when user signs in
+  React.useEffect(() => {
+    if (isSignedIn && user) {
+      registerForPushNotificationsAsync(getToken);
+    }
+  }, [isSignedIn, user, getToken]);
 
   // Show loading state while Clerk is initializing
   if (!isLoaded || !userLoaded) {
