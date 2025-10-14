@@ -1,8 +1,33 @@
 // API Configuration
-export const API_BASE_URL = 'https://server-parking-app.vercel.app/';
+const DEV_API_URL = 'http://localhost:3000';
+const PROD_API_URL = 'https://your-vercel-app-url.vercel.app'; // Replace with your actual Vercel URL
 
-// Use localhost for web/simulator testing:
-// export const API_BASE_URL = 'http://localhost:5000';
+export const API_BASE_URL = __DEV__ ? DEV_API_URL : PROD_API_URL;
 
-// Use your computer's IP address for physical device testing:
-// Replace with your actual IP address if different
+// Configure fetch timeout
+export const FETCH_TIMEOUT = 30000; // 30 seconds
+
+// Helper function for API requests with timeout
+export const fetchWithTimeout = async (url, options = {}) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        ...options.headers,
+        'Accept': 'application/json',
+      },
+    });
+    clearTimeout(timeout);
+    return response;
+  } catch (error) {
+    clearTimeout(timeout);
+    if (error.name === 'AbortError') {
+      throw new Error('Request timeout');
+    }
+    throw error;
+  }
+};
