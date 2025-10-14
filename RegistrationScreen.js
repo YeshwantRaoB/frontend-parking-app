@@ -229,7 +229,6 @@ export default function RegistrationScreen() {
         method: 'POST',
         body: vehicleFormData,
         headers: {
-          'Content-Type': 'multipart/form-data',
           'Authorization': `Bearer ${token}`,
         },
       });
@@ -252,7 +251,6 @@ export default function RegistrationScreen() {
         method: 'POST',
         body: ownerFormData,
         headers: {
-          'Content-Type': 'multipart/form-data',
           'Authorization': `Bearer ${token}`,
         },
       });
@@ -294,7 +292,6 @@ export default function RegistrationScreen() {
       const response = await fetch(`${API_BASE_URL}/register`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify(registrationData),
