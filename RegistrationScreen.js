@@ -3,7 +3,7 @@ import { View, Text, TextInput, Image, TouchableOpacity, StyleSheet, ScrollView,
 import * as ImagePicker from 'expo-image-picker';
 import { useNavigation } from '@react-navigation/native';
 import { useUser, useAuth } from '@clerk/clerk-expo';
-import { API_BASE_URL } from './config';
+import { apiUrl, fetchWithTimeout } from './config';
 import Footer from './components/Footer';
 
 // Branch/Department options
@@ -225,7 +225,7 @@ export default function RegistrationScreen() {
         type: 'image/jpeg',
       });
 
-      const vehicleImageResponse = await fetch(`${API_BASE_URL}/upload-image`, {
+      const vehicleImageResponse = await fetchWithTimeout(apiUrl('upload-image'), {
         method: 'POST',
         body: vehicleFormData,
         headers: {
@@ -248,7 +248,7 @@ export default function RegistrationScreen() {
         type: 'image/jpeg',
       });
 
-      const ownerImageResponse = await fetch(`${API_BASE_URL}/upload-image`, {
+      const ownerImageResponse = await fetchWithTimeout(apiUrl('upload-image'), {
         method: 'POST',
         body: ownerFormData,
         headers: {
@@ -291,7 +291,7 @@ export default function RegistrationScreen() {
       // Debug: Log the data being sent
       console.log('Registration data being sent:', JSON.stringify(registrationData, null, 2));
 
-      const response = await fetch(`${API_BASE_URL}/register`, {
+      const response = await fetchWithTimeout(apiUrl('register'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
