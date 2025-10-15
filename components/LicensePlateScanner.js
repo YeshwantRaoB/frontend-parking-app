@@ -149,7 +149,7 @@ const LicensePlateScanner = ({ visible, onClose, onVehicleFound }) => {
   const searchVehicleInDatabase = async (licensePlate) => {
     try {
       setProcessingStep('Searching database...');
-      const token = await getAuthToken();
+      const token = await getToken();
 
       const headers = {
         'Content-Type': 'application/json',
