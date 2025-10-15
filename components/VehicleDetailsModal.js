@@ -175,7 +175,19 @@ const VehicleDetailsModal = ({ visible, onClose, vehicle, onEdit }) => {
                 </View>
               )}
 
-              {!vehicle.vehiclePhotoUrl && !vehicle.photoUrl && !vehicle.ownerPhotoUrl && (
+              {/* Driving License Photo */}
+              {vehicle.drivingLicensePhotoUrl && (
+                <View style={styles.photoContainer}>
+                  <Text style={styles.photoLabel}>🪪 Driving License Photo:</Text>
+                  <Image
+                    source={{ uri: vehicle.drivingLicensePhotoUrl }}
+                    style={styles.licensePhoto}
+                    resizeMode="contain"
+                  />
+                </View>
+              )}
+
+              {!vehicle.vehiclePhotoUrl && !vehicle.photoUrl && !vehicle.ownerPhotoUrl && !vehicle.drivingLicensePhotoUrl && (
                 <Text style={styles.noPhotosText}>No photos available</Text>
               )}
             </View>
@@ -365,6 +377,14 @@ const styles = StyleSheet.create({
     height: 200,
     borderRadius: 10,
     backgroundColor: '#f0f0f0',
+  },
+  licensePhoto: {
+    width: '100%',
+    height: 180,
+    borderRadius: 10,
+    backgroundColor: '#f8f9fa',
+    borderWidth: 2,
+    borderColor: '#4a90e2',
   },
   noPhotosText: {
     fontSize: 14,

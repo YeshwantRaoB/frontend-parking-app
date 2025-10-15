@@ -25,6 +25,7 @@ import LicensePlateScanner from './components/LicensePlateScanner';
 import VehicleDetailsModal from './components/VehicleDetailsModal';
 import StatsOverview from './components/admin/StatsOverview';
 import StatsPanel from './components/admin/StatsPanel';
+import WhitelistManager from './components/admin/WhitelistManager';
 
 // Branch/Department options (same as registration screen)
 const BRANCH_OPTIONS = [
@@ -100,6 +101,7 @@ export default function AdminScreen() {
   const [showEditStaffPositionModal, setShowEditStaffPositionModal] = useState(false);
   const [showEditVehicleTypeModal, setShowEditVehicleTypeModal] = useState(false);
   const [showOverflowMenu, setShowOverflowMenu] = useState(false);
+  const [showWhitelistManager, setShowWhitelistManager] = useState(false);
 
   // Data state
   const [selectedVehicle, setSelectedVehicle] = useState(null);
@@ -1521,6 +1523,20 @@ export default function AdminScreen() {
                 style={styles.overflowMenuItem}
                 onPress={() => {
                   setShowOverflowMenu(false);
+                  setShowWhitelistManager(true);
+                }}
+              >
+                <Text style={styles.overflowMenuItemIcon}>📧</Text>
+                <View style={styles.overflowMenuItemContent}>
+                  <Text style={styles.overflowMenuItemTitle}>Manage Email Whitelist</Text>
+                  <Text style={styles.overflowMenuItemSubtitle}>Control who can access the app</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.overflowMenuItem}
+                onPress={() => {
+                  setShowOverflowMenu(false);
                   setShowAddAdminModal(true);
                 }}
               >
@@ -1562,6 +1578,12 @@ export default function AdminScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Whitelist Manager Modal */}
+      <WhitelistManager
+        visible={showWhitelistManager}
+        onClose={() => setShowWhitelistManager(false)}
+      />
 
       </SafeAreaView>
       <Footer />

@@ -71,6 +71,8 @@ const StatsPanel = ({ onFilterSelect, activeFilter }) => {
         throw new Error('No authentication token available');
       }
 
+      console.log('📊 [StatsPanel] Fetching stats from:', `${API_BASE_URL}/vehicles/stats`);
+
       const response = await fetch(`${API_BASE_URL}/vehicles/stats`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -78,15 +80,31 @@ const StatsPanel = ({ onFilterSelect, activeFilter }) => {
         },
       });
 
+      console.log('📊 [StatsPanel] Response status:', response.status);
+
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('📊 [StatsPanel] Error response:', errorData);
         throw new Error(errorData.error || 'Failed to fetch statistics');
       }
 
       const data = await response.json();
-      setStats(data);
+      console.log('📊 [StatsPanel] Raw data received:', JSON.stringify(data, null, 2));
+      
+      // Ensure data has the expected structure
+      const normalizedData = {
+        total: data.total || 0,
+        designations: Array.isArray(data.designations) ? data.designations : [],
+        branches: Array.isArray(data.branches) ? data.branches : [],
+        staffPositions: Array.isArray(data.staffPositions) ? data.staffPositions : [],
+        recentCount: data.recentCount || 0,
+        monthlyTrend: Array.isArray(data.monthlyTrend) ? data.monthlyTrend : []
+      };
+      
+      console.log('📊 [StatsPanel] Normalized data:', JSON.stringify(normalizedData, null, 2));
+      setStats(normalizedData);
     } catch (error) {
-      console.error('Error fetching stats:', error);
+      console.error('📊 [StatsPanel] Error fetching stats:', error);
       setError(error.message);
     } finally {
       setLoading(false);
