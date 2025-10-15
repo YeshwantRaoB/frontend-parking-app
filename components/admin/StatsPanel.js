@@ -241,47 +241,56 @@ const StatsPanel = ({ onFilterSelect, activeFilter }) => {
       );
     }
 
-    const chartData = {
-      labels: stats.designations.map(d => d.designation),
-      datasets: [{
-        data: stats.designations.map(d => d.count)
-      }]
-    };
-    
-    console.log('📊 [renderDesignationChart] Chart data:', chartData);
+    try {
+      const chartData = {
+        labels: stats.designations.map(d => d.designation || 'Unknown'),
+        datasets: [{
+          data: stats.designations.map(d => Math.max(d.count || 0, 0))
+        }]
+      };
+      
+      console.log('📊 [renderDesignationChart] Chart data:', JSON.stringify(chartData, null, 2));
 
-    return (
-      <View style={styles.chartContainer}>
-        <Text style={styles.chartTitle}>Vehicle Distribution by Designation</Text>
-        <BarChart
-          data={chartData}
-          width={screenWidth - 32}
-          height={220}
-          chartConfig={{
-            backgroundColor: COLORS.background,
-            backgroundGradientFrom: COLORS.background,
-            backgroundGradientTo: COLORS.background,
-            decimalPlaces: 0,
-            color: (opacity = 1) => `rgba(74, 144, 226, ${opacity})`,
-            labelColor: (opacity = 1) => `rgba(52, 58, 64, ${opacity})`,
-            style: {
-              borderRadius: 16,
-            },
-            propsForDots: {
-              r: "6",
-              strokeWidth: "2",
-              stroke: COLORS.primary
-            },
-            propsForBackgroundLines: {
-              strokeDasharray: "", // solid background lines
-            },
-          }}
-          style={styles.chart}
-          showValuesOnTopOfBars={true}
-          fromZero={true}
-        />
-      </View>
-    );
+      return (
+        <View style={styles.chartContainer}>
+          <Text style={styles.chartTitle}>Vehicle Distribution by Designation</Text>
+          <BarChart
+            data={chartData}
+            width={screenWidth - 32}
+            height={220}
+            yAxisLabel=""
+            yAxisSuffix=""
+            chartConfig={{
+              backgroundColor: '#ffffff',
+              backgroundGradientFrom: '#ffffff',
+              backgroundGradientTo: '#ffffff',
+              decimalPlaces: 0,
+              color: (opacity = 1) => `rgba(74, 144, 226, ${opacity})`,
+              labelColor: (opacity = 1) => `rgba(52, 58, 64, ${opacity})`,
+              style: {
+                borderRadius: 16,
+              },
+              barPercentage: 0.7,
+            }}
+            style={styles.chart}
+            showValuesOnTopOfBars={true}
+            fromZero={true}
+            verticalLabelRotation={0}
+          />
+        </View>
+      );
+    } catch (error) {
+      console.error('📊 [renderDesignationChart] Error rendering chart:', error);
+      return (
+        <View style={styles.chartContainer}>
+          <Text style={styles.chartTitle}>Vehicle Distribution by Designation</Text>
+          <View style={styles.noDataContainer}>
+            <Text style={styles.noDataText}>⚠️ Chart rendering error</Text>
+            <Text style={styles.noDataSubtext}>Please try refreshing</Text>
+          </View>
+        </View>
+      );
+    }
   };
 
   const renderBranchChart = () => {
@@ -313,44 +322,58 @@ const StatsPanel = ({ onFilterSelect, activeFilter }) => {
       );
     }
 
-    // Prepare data for pie chart
-    const pieData = stats.branches.slice(0, 8).map((branch, index) => ({
-      name: branch.branch.length > 15 ? branch.branch.substring(0, 12) + '...' : branch.branch,
-      population: branch.count,
-      color: CHART_COLORS[index % CHART_COLORS.length],
-      legendFontColor: COLORS.dark,
-      legendFontSize: 12,
-      branch: branch.branch, // Keep full name for filtering
-    }));
+    try {
+      // Prepare data for pie chart
+      const pieData = stats.branches.slice(0, 8).map((branch, index) => ({
+        name: (branch.branch || 'Unknown').length > 15 ? (branch.branch || 'Unknown').substring(0, 12) + '...' : (branch.branch || 'Unknown'),
+        population: Math.max(branch.count || 0, 0),
+        color: CHART_COLORS[index % CHART_COLORS.length],
+        legendFontColor: COLORS.dark,
+        legendFontSize: 12,
+        branch: branch.branch || 'Unknown', // Keep full name for filtering
+      }));
 
-    return (
-      <View style={styles.chartContainer}>
-        <Text style={styles.chartTitle}>Student Distribution by Branch</Text>
-        <PieChart
-          data={pieData}
-          width={screenWidth - 32}
-          height={220}
-          chartConfig={{
-            backgroundColor: COLORS.background,
-            backgroundGradientFrom: COLORS.background,
-            backgroundGradientTo: COLORS.background,
-            color: (opacity = 1) => `rgba(74, 144, 226, ${opacity})`,
-            labelColor: (opacity = 1) => `rgba(52, 58, 64, ${opacity})`,
-          }}
-          accessor="population"
-          backgroundColor="transparent"
-          paddingLeft="15"
-          absolute
-          style={styles.chart}
-          onDataPointPress={(data) => handleChartPress(data, data.index)}
-        />
-        {stats.branches.length > 8 && (
-          <Text style={styles.chartNote}>
-            Showing top 8 branches. Total branches: {stats.branches.length}
-          </Text>
-        )}
-      </View>
-    );
+      console.log('📊 [renderBranchChart] Pie data:', JSON.stringify(pieData, null, 2));
+
+      return (
+        <View style={styles.chartContainer}>
+          <Text style={styles.chartTitle}>Student Distribution by Branch</Text>
+          <PieChart
+            data={pieData}
+            width={screenWidth - 32}
+            height={220}
+            chartConfig={{
+              backgroundColor: '#ffffff',
+              backgroundGradientFrom: '#ffffff',
+              backgroundGradientTo: '#ffffff',
+              color: (opacity = 1) => `rgba(74, 144, 226, ${opacity})`,
+              labelColor: (opacity = 1) => `rgba(52, 58, 64, ${opacity})`,
+            }}
+            accessor="population"
+            backgroundColor="transparent"
+            paddingLeft="15"
+            absolute
+            style={styles.chart}
+          />
+          {stats.branches.length > 8 && (
+            <Text style={styles.chartNote}>
+              Showing top 8 branches. Total branches: {stats.branches.length}
+            </Text>
+          )}
+        </View>
+      );
+    } catch (error) {
+      console.error('📊 [renderBranchChart] Error rendering chart:', error);
+      return (
+        <View style={styles.chartContainer}>
+          <Text style={styles.chartTitle}>Student Distribution by Branch</Text>
+          <View style={styles.noDataContainer}>
+            <Text style={styles.noDataText}>⚠️ Chart rendering error</Text>
+            <Text style={styles.noDataSubtext}>Please try refreshing</Text>
+          </View>
+        </View>
+      );
+    }
   };
 
   const renderTrendChart = () => {
@@ -382,43 +405,58 @@ const StatsPanel = ({ onFilterSelect, activeFilter }) => {
       );
     }
 
-    const chartData = {
-      labels: stats.monthlyTrend.map(m => m.month.split('-')[1]), // Show only month
-      datasets: [{
-        data: stats.monthlyTrend.map(m => m.count),
-        color: (opacity = 1) => `rgba(74, 144, 226, ${opacity})`,
-        strokeWidth: 3
-      }]
-    };
+    try {
+      const chartData = {
+        labels: stats.monthlyTrend.map(m => (m.month || 'N/A').split('-')[1] || 'N/A'), // Show only month
+        datasets: [{
+          data: stats.monthlyTrend.map(m => Math.max(m.count || 0, 0)),
+          color: (opacity = 1) => `rgba(74, 144, 226, ${opacity})`,
+          strokeWidth: 3
+        }]
+      };
 
-    return (
-      <View style={styles.chartContainer}>
-        <Text style={styles.chartTitle}>Registration Trend (Last 6 Months)</Text>
-        <LineChart
-          data={chartData}
-          width={screenWidth - 32}
-          height={220}
-          chartConfig={{
-            backgroundColor: COLORS.background,
-            backgroundGradientFrom: COLORS.background,
-            backgroundGradientTo: COLORS.background,
-            decimalPlaces: 0,
-            color: (opacity = 1) => `rgba(74, 144, 226, ${opacity})`,
-            labelColor: (opacity = 1) => `rgba(52, 58, 64, ${opacity})`,
-            style: {
-              borderRadius: 16,
-            },
-            propsForDots: {
-              r: "6",
-              strokeWidth: "2",
-              stroke: COLORS.primary
-            },
-          }}
-          bezier
-          style={styles.chart}
-        />
-      </View>
-    );
+      console.log('📊 [renderTrendChart] Chart data:', JSON.stringify(chartData, null, 2));
+
+      return (
+        <View style={styles.chartContainer}>
+          <Text style={styles.chartTitle}>Registration Trend (Last 6 Months)</Text>
+          <LineChart
+            data={chartData}
+            width={screenWidth - 32}
+            height={220}
+            chartConfig={{
+              backgroundColor: '#ffffff',
+              backgroundGradientFrom: '#ffffff',
+              backgroundGradientTo: '#ffffff',
+              decimalPlaces: 0,
+              color: (opacity = 1) => `rgba(74, 144, 226, ${opacity})`,
+              labelColor: (opacity = 1) => `rgba(52, 58, 64, ${opacity})`,
+              style: {
+                borderRadius: 16,
+              },
+              propsForDots: {
+                r: "6",
+                strokeWidth: "2",
+                stroke: COLORS.primary
+              },
+            }}
+            bezier
+            style={styles.chart}
+          />
+        </View>
+      );
+    } catch (error) {
+      console.error('📊 [renderTrendChart] Error rendering chart:', error);
+      return (
+        <View style={styles.chartContainer}>
+          <Text style={styles.chartTitle}>Registration Trend (Last 6 Months)</Text>
+          <View style={styles.noDataContainer}>
+            <Text style={styles.noDataText}>⚠️ Chart rendering error</Text>
+            <Text style={styles.noDataSubtext}>Please try refreshing</Text>
+          </View>
+        </View>
+      );
+    }
   };
 
   if (loading) {

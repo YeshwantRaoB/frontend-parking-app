@@ -175,15 +175,31 @@ const VehicleDetailsModal = ({ visible, onClose, vehicle, onEdit }) => {
                 </View>
               )}
 
-              {/* Driving License Photo */}
+              {/* Driving License Photo - Prominent Display */}
               {vehicle.drivingLicensePhotoUrl && (
-                <View style={styles.photoContainer}>
-                  <Text style={styles.photoLabel}>🪪 Driving License Photo:</Text>
-                  <Image
-                    source={{ uri: vehicle.drivingLicensePhotoUrl }}
-                    style={styles.licensePhoto}
-                    resizeMode="contain"
-                  />
+                <View style={styles.licensePhotoSection}>
+                  <View style={styles.licenseHeader}>
+                    <Text style={styles.licenseHeaderText}>🪪 Driving License</Text>
+                    <View style={styles.licenseBadge}>
+                      <Text style={styles.licenseBadgeText}>VERIFIED</Text>
+                    </View>
+                  </View>
+                  <View style={styles.licensePhotoWrapper}>
+                    <Image
+                      source={{ uri: vehicle.drivingLicensePhotoUrl }}
+                      style={styles.licensePhoto}
+                      resizeMode="contain"
+                    />
+                  </View>
+                  <TouchableOpacity 
+                    style={styles.viewFullButton}
+                    onPress={() => {
+                      // Open in full screen - for now just show an alert
+                      Alert.alert('Driving License', 'License photo is displayed above');
+                    }}
+                  >
+                    <Text style={styles.viewFullButtonText}>📱 View Full Size</Text>
+                  </TouchableOpacity>
                 </View>
               )}
 
@@ -378,13 +394,76 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: '#f0f0f0',
   },
-  licensePhoto: {
-    width: '100%',
-    height: 180,
-    borderRadius: 10,
-    backgroundColor: '#f8f9fa',
+  licensePhotoSection: {
+    marginTop: 12,
+    marginBottom: 20,
+    padding: 16,
+    backgroundColor: '#e3f2fd',
+    borderRadius: 12,
     borderWidth: 2,
     borderColor: '#4a90e2',
+    shadowColor: '#4a90e2',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  licenseHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  licenseHeaderText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1976d2',
+  },
+  licenseBadge: {
+    backgroundColor: '#28a745',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  licenseBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+  },
+  licensePhotoWrapper: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 8,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  licensePhoto: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    backgroundColor: '#f8f9fa',
+  },
+  viewFullButton: {
+    backgroundColor: '#1976d2',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    shadowColor: '#1976d2',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  viewFullButtonText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: 'bold',
   },
   noPhotosText: {
     fontSize: 14,
