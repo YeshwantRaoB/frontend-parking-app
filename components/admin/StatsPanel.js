@@ -195,7 +195,33 @@ const StatsPanel = ({ onFilterSelect, activeFilter }) => {
   };
 
   const renderDesignationChart = () => {
-    if (!stats || !stats.designations.length) return null;
+    console.log('📊 [renderDesignationChart] Checking stats:', stats);
+    console.log('📊 [renderDesignationChart] Designations:', stats?.designations);
+    
+    if (!stats || !stats.designations || !Array.isArray(stats.designations)) {
+      console.warn('📊 [renderDesignationChart] No valid designations data');
+      return (
+        <View style={styles.chartContainer}>
+          <Text style={styles.chartTitle}>Vehicle Distribution by Designation</Text>
+          <View style={styles.noDataContainer}>
+            <Text style={styles.noDataText}>No designation data available</Text>
+            <Text style={styles.noDataSubtext}>Register some vehicles to see statistics</Text>
+          </View>
+        </View>
+      );
+    }
+    
+    if (stats.designations.length === 0) {
+      console.warn('📊 [renderDesignationChart] Empty designations array');
+      return (
+        <View style={styles.chartContainer}>
+          <Text style={styles.chartTitle}>Vehicle Distribution by Designation</Text>
+          <View style={styles.noDataContainer}>
+            <Text style={styles.noDataText}>No vehicles registered yet</Text>
+          </View>
+        </View>
+      );
+    }
 
     const chartData = {
       labels: stats.designations.map(d => d.designation),
@@ -203,6 +229,8 @@ const StatsPanel = ({ onFilterSelect, activeFilter }) => {
         data: stats.designations.map(d => d.count)
       }]
     };
+    
+    console.log('📊 [renderDesignationChart] Chart data:', chartData);
 
     return (
       <View style={styles.chartContainer}>
@@ -239,7 +267,33 @@ const StatsPanel = ({ onFilterSelect, activeFilter }) => {
   };
 
   const renderBranchChart = () => {
-    if (!stats || !stats.branches.length) return null;
+    console.log('📊 [renderBranchChart] Checking stats:', stats);
+    console.log('📊 [renderBranchChart] Branches:', stats?.branches);
+    
+    if (!stats || !stats.branches || !Array.isArray(stats.branches)) {
+      console.warn('📊 [renderBranchChart] No valid branches data');
+      return (
+        <View style={styles.chartContainer}>
+          <Text style={styles.chartTitle}>Student Distribution by Branch</Text>
+          <View style={styles.noDataContainer}>
+            <Text style={styles.noDataText}>No branch data available</Text>
+            <Text style={styles.noDataSubtext}>Register some students to see branch distribution</Text>
+          </View>
+        </View>
+      );
+    }
+    
+    if (stats.branches.length === 0) {
+      console.warn('📊 [renderBranchChart] Empty branches array');
+      return (
+        <View style={styles.chartContainer}>
+          <Text style={styles.chartTitle}>Student Distribution by Branch</Text>
+          <View style={styles.noDataContainer}>
+            <Text style={styles.noDataText}>No students registered yet</Text>
+          </View>
+        </View>
+      );
+    }
 
     // Prepare data for pie chart
     const pieData = stats.branches.slice(0, 8).map((branch, index) => ({
@@ -282,7 +336,33 @@ const StatsPanel = ({ onFilterSelect, activeFilter }) => {
   };
 
   const renderTrendChart = () => {
-    if (!stats || !stats.monthlyTrend.length) return null;
+    console.log('📊 [renderTrendChart] Checking stats:', stats);
+    console.log('📊 [renderTrendChart] Monthly trend:', stats?.monthlyTrend);
+    
+    if (!stats || !stats.monthlyTrend || !Array.isArray(stats.monthlyTrend)) {
+      console.warn('📊 [renderTrendChart] No valid monthly trend data');
+      return (
+        <View style={styles.chartContainer}>
+          <Text style={styles.chartTitle}>Registration Trend (Last 6 Months)</Text>
+          <View style={styles.noDataContainer}>
+            <Text style={styles.noDataText}>No trend data available</Text>
+            <Text style={styles.noDataSubtext}>Registration history will appear here</Text>
+          </View>
+        </View>
+      );
+    }
+    
+    if (stats.monthlyTrend.length === 0) {
+      console.warn('📊 [renderTrendChart] Empty monthly trend array');
+      return (
+        <View style={styles.chartContainer}>
+          <Text style={styles.chartTitle}>Registration Trend (Last 6 Months)</Text>
+          <View style={styles.noDataContainer}>
+            <Text style={styles.noDataText}>No registrations in the last 6 months</Text>
+          </View>
+        </View>
+      );
+    }
 
     const chartData = {
       labels: stats.monthlyTrend.map(m => m.month.split('-')[1]), // Show only month
@@ -539,6 +619,28 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
     fontStyle: 'italic',
+  },
+  // No data container styles
+  noDataContainer: {
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.light,
+    borderRadius: 12,
+    marginVertical: 8,
+  },
+  noDataText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.muted,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  noDataSubtext: {
+    fontSize: 14,
+    color: COLORS.muted,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   // Skeleton loader styles
   skeletonContainer: {

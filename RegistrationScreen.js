@@ -55,6 +55,7 @@ export default function RegistrationScreen() {
 
   const [vehiclePhoto, setVehiclePhoto] = useState(null);
   const [ownerPhoto, setOwnerPhoto] = useState(null);
+  const [drivingLicensePhoto, setDrivingLicensePhoto] = useState(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [userData, setUserData] = useState(null);
@@ -116,10 +117,13 @@ export default function RegistrationScreen() {
         return;
       }
 
+      // Different aspect ratio for driving license (landscape)
+      const aspectRatio = type === 'license' ? [16, 10] : [1, 1];
+      
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsEditing: true,
-        aspect: [1, 1],
+        aspect: aspectRatio,
         quality: 0.8,
       });
 
@@ -130,6 +134,8 @@ export default function RegistrationScreen() {
             setVehiclePhoto(imageUri);
           } else if (type === 'owner') {
             setOwnerPhoto(imageUri);
+          } else if (type === 'license') {
+            setDrivingLicensePhoto(imageUri);
           }
         }
       }
@@ -171,8 +177,8 @@ export default function RegistrationScreen() {
 
   const handleSubmit = async () => {
     // Validation
-    if (!licencePlate.trim() || !fullName.trim() || !branch.trim() || !designation.trim() || !vehicleName.trim() || !vehicleType.trim() || !phoneNumber.trim() || !vehiclePhoto || !ownerPhoto) {
-      Alert.alert('Validation error', 'Please fill all required fields, including phone number, and upload both photos');
+    if (!licencePlate.trim() || !fullName.trim() || !branch.trim() || !designation.trim() || !vehicleName.trim() || !vehicleType.trim() || !phoneNumber.trim() || !vehiclePhoto || !ownerPhoto || !drivingLicensePhoto) {
+      Alert.alert('Validation error', 'Please fill all required fields, including phone number, and upload all three photos (vehicle, owner, and driving license)');
       return;
     }
 
@@ -263,6 +269,29 @@ export default function RegistrationScreen() {
         throw new Error(ownerImageJson.error || 'Owner photo upload failed');
       }
 
+      // Upload driving license photo
+      const licenseFormData = new FormData();
+      licenseFormData.append('image', {
+        uri: drivingLicensePhoto,
+        name: 'driving_license_photo.jpg',
+        type: 'image/jpeg',
+      });
+
+      const licenseImageResponse = await fetchWithTimeout(apiUrl('upload-image'), {
+        method: 'POST',
+        body: licenseFormData,
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        },
+      });
+
+      const licenseImageJson = await licenseImageResponse.json();
+      console.log('Driving license photo upload response:', licenseImageJson);
+      if (!licenseImageResponse.ok) {
+        throw new Error(licenseImageJson.error || 'Driving license photo upload failed');
+      }
+
       // Register the vehicle - ensure all possible field names are included
       const registrationData = {
         licencePlate: licencePlate.trim(),
@@ -274,6 +303,7 @@ export default function RegistrationScreen() {
         phoneNumber: phoneNumber.trim(),
         vehiclePhotoUrl: vehicleImageJson.url,
         ownerPhotoUrl: ownerImageJson.url,
+        drivingLicensePhotoUrl: licenseImageJson.url,
         // Also try alternative field names the backend might expect
         photoUrl: vehicleImageJson.url, // Legacy field name
         userId: user?.id
@@ -317,6 +347,7 @@ export default function RegistrationScreen() {
         setPhoneError('');
         setVehiclePhoto(null);
         setOwnerPhoto(null);
+        setDrivingLicensePhoto(null);
         setMessage('Registration successful! You can register another vehicle or go back.');
       } else {
         // Log the full error response for debugging
@@ -499,6 +530,26 @@ export default function RegistrationScreen() {
 
         {ownerPhoto && (
           <Image source={{ uri: ownerPhoto }} style={styles.previewImage} />
+        )}
+      </View>
+
+      <View style={styles.photoSection}>
+        <Text style={styles.sectionLabel}>Driving License Photo *</Text>
+        <Text style={styles.helperText}>
+          Upload a clear photo of your valid driving license
+        </Text>
+        <TouchableOpacity
+          style={styles.uploadButton}
+          onPress={() => pickImage('license')}
+          disabled={loading}
+        >
+          <Text style={styles.uploadButtonText}>
+            {drivingLicensePhoto ? '🪪 Change License Photo' : '🪪 Upload License Photo'}
+          </Text>
+        </TouchableOpacity>
+
+        {drivingLicensePhoto && (
+          <Image source={{ uri: drivingLicensePhoto }} style={styles.previewImageLicense} />
         )}
       </View>
 
@@ -733,6 +784,16 @@ const styles = StyleSheet.create({
     resizeMode: 'cover',
     borderWidth: 1,
     borderColor: '#e9ecef',
+  },
+  previewImageLicense: {
+    width: '100%',
+    height: 150,
+    borderRadius: 10,
+    marginTop: 8,
+    resizeMode: 'contain',
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+    backgroundColor: '#f8f9fa',
   },
   loadingContainer: {
     alignItems: 'center',
