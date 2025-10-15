@@ -23,15 +23,24 @@ export const fetchWithTimeout = async (url, options = {}) => {
     // Ensure URL is properly formatted
     const fullUrl = url.startsWith('http') ? url : apiUrl(url);
     
+    // Check if body is FormData - if so, don't set Content-Type (let browser handle it)
+    const isFormData = options.body instanceof FormData;
+    
+    // Prepare headers - only set Content-Type if not FormData
+    const headers = {
+      'Accept': 'application/json',
+      ...options.headers,
+    };
+    
+    // Only add Content-Type for non-FormData requests
+    if (!isFormData && !headers['Content-Type']) {
+      headers['Content-Type'] = 'application/json';
+    }
+    
     const response = await fetch(fullUrl, {
       ...options,
       signal: controller.signal,
-      credentials: 'include', // Include credentials (cookies) with the request
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        ...options.headers,
-      },
+      headers,
     });
     clearTimeout(timeout);
     return response;
