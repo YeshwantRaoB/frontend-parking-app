@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImageManipulator from 'expo-image-manipulator';
-// import Tesseract from 'tesseract.js';
+import { useAuth } from '@clerk/clerk-expo';
 import { API_BASE_URL } from '../config';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -27,17 +27,7 @@ const LicensePlateScanner = ({ visible, onClose, onVehicleFound }) => {
   const [cameraFacing, setCameraFacing] = useState('back');
   const [showPreview, setShowPreview] = useState(false);
   const cameraRef = useRef(null);
-  // Get authentication token safely - completely optional
-  const getAuthToken = async () => {
-    try {
-      // Try to get token from various sources
-      // This is a fallback approach since useAuth might not be available
-      return null; // For now, return null to make authentication optional
-    } catch (error) {
-      console.warn('Authentication not available:', error);
-      return null;
-    }
-  };
+  const { getToken } = useAuth();
 
   // Request permissions when modal becomes visible
   useEffect(() => {
@@ -61,21 +51,51 @@ const LicensePlateScanner = ({ visible, onClose, onVehicleFound }) => {
     }
   };
 
-  // Enhanced OCR with multiple processing attempts (mock implementation)
+  // Perform license plate recognition using Plate Recognizer API via backend
   const performOCR = async (imageUri) => {
     try {
-      setProcessingStep('Analyzing license plate...');
+      setProcessingStep('Analyzing license plate with AI...');
 
-      // Mock OCR processing delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const token = await getToken();
 
-      setProcessingStep('Processing... 50%');
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Create form data with the image
+      const formData = new FormData();
+      
+      formData.append('image', {
+        uri: imageUri,
+        type: 'image/jpeg',
+        name: 'license_plate.jpg'
+      });
 
-      setProcessingStep('Processing... 100%');
+      const headers = {
+        'Accept': 'application/json',
+      };
 
-      // Mock license plate detection - return a sample plate for testing
-      return 'KA01AB1234'; // This would normally be the OCR result
+      // Add authorization header
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      console.log('Sending image to backend for plate recognition...');
+      
+      const apiResponse = await fetch(
+        `${API_BASE_URL}/scan-plate`,
+        {
+          method: 'POST',
+          headers,
+          body: formData,
+        }
+      );
+
+      if (!apiResponse.ok) {
+        const errorData = await apiResponse.json();
+        throw new Error(errorData.error || 'Failed to scan license plate');
+      }
+
+      const data = await apiResponse.json();
+      console.log('Plate recognition response:', data);
+
+      return data;
     } catch (error) {
       console.error('OCR error:', error);
       throw error;
@@ -161,12 +181,11 @@ const LicensePlateScanner = ({ visible, onClose, onVehicleFound }) => {
       setShowPreview(true);
 
       const processedImageUri = await preprocessImage(photo.uri);
-      const rawText = await performOCR(processedImageUri);
-      setExtractedText(rawText);
+      const scanResult = await performOCR(processedImageUri);
       
-      const possiblePlates = cleanLicensePlateText(rawText);
-      
-      if (possiblePlates.length === 0) {
+      // Check if plate was detected
+      if (!scanResult.plateDetected) {
+        setExtractedText('No plate detected');
         Alert.alert(
           'No License Plate Detected',
           'Could not detect a valid license plate. Please try again with better lighting and ensure the plate is clearly visible.',
@@ -178,31 +197,21 @@ const LicensePlateScanner = ({ visible, onClose, onVehicleFound }) => {
         return;
       }
 
-      let foundVehicle = null;
-      let matchedPlate = '';
+      // Set the detected plate text for display
+      const detectedPlate = scanResult.detectedPlate;
+      const confidence = scanResult.confidence ? `(${Math.round(scanResult.confidence * 100)}% confidence)` : '';
+      setExtractedText(`${detectedPlate} ${confidence}`);
 
-      for (const plate of possiblePlates) {
-        try {
-          const vehicle = await searchVehicleInDatabase(plate);
-          if (vehicle) {
-            foundVehicle = vehicle;
-            matchedPlate = plate;
-            break;
-          }
-        } catch (error) {
-          console.error(`Error searching for plate ${plate}:`, error);
-        }
-      }
-
-      if (foundVehicle) {
+      // Check if vehicle was found in database
+      if (scanResult.found && scanResult.vehicle) {
         Alert.alert(
           'Vehicle Found! ✅',
-          `License Plate: ${matchedPlate}\nOwner: ${foundVehicle.fullName}\nBranch: ${foundVehicle.branch}`,
+          `License Plate: ${detectedPlate}\n${confidence}\n\nOwner: ${scanResult.vehicle.fullName}\nDesignation: ${scanResult.vehicle.designation}\nBranch: ${scanResult.vehicle.branch}${scanResult.vehicle.registerNumber ? `\nRegister Number: ${scanResult.vehicle.registerNumber}` : ''}${scanResult.vehicle.department ? `\nDepartment: ${scanResult.vehicle.department}` : ''}`,
           [
             {
               text: 'View Details',
               onPress: () => {
-                onVehicleFound(foundVehicle);
+                onVehicleFound(scanResult.vehicle);
                 onClose();
               }
             },
@@ -211,8 +220,8 @@ const LicensePlateScanner = ({ visible, onClose, onVehicleFound }) => {
         );
       } else {
         Alert.alert(
-          'User Not Found ❌',
-          `License Plate: ${possiblePlates[0]}\n\nThis vehicle is not registered in the system.`,
+          'Vehicle Not Registered ❌',
+          `License Plate Detected: ${detectedPlate}\n${confidence}\n\nThis vehicle is not registered in the system.`,
           [
             { text: 'Scan Another', onPress: () => setShowPreview(false) },
             { text: 'Close', onPress: onClose }
@@ -224,7 +233,7 @@ const LicensePlateScanner = ({ visible, onClose, onVehicleFound }) => {
       console.error('License plate scanning error:', error);
       Alert.alert(
         'Scanning Error',
-        'Failed to process the image. Please try again.',
+        error.message || 'Failed to process the image. Please try again.',
         [
           { text: 'Retry', onPress: () => setShowPreview(false) },
           { text: 'Cancel', onPress: onClose }
