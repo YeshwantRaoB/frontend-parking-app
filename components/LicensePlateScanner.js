@@ -57,6 +57,10 @@ const LicensePlateScanner = ({ visible, onClose, onVehicleFound }) => {
       setProcessingStep('Analyzing license plate with AI...');
 
       const token = await getToken();
+      
+      if (!token) {
+        throw new Error('Please log in to use the license plate scanner');
+      }
 
       // Create form data with the image
       const formData = new FormData();
@@ -88,8 +92,19 @@ const LicensePlateScanner = ({ visible, onClose, onVehicleFound }) => {
       );
 
       if (!apiResponse.ok) {
-        const errorData = await apiResponse.json();
-        throw new Error(errorData.error || 'Failed to scan license plate');
+        let errorMessage = 'Failed to scan license plate';
+        try {
+          const errorData = await apiResponse.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (parseError) {
+          // If response isn't JSON, use status text
+          if (apiResponse.status === 401) {
+            errorMessage = 'Authentication failed. Please log in again.';
+          } else {
+            errorMessage = `Server error: ${apiResponse.status}`;
+          }
+        }
+        throw new Error(errorMessage);
       }
 
       const data = await apiResponse.json();
