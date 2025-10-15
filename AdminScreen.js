@@ -1062,9 +1062,17 @@ export default function AdminScreen() {
         <View style={styles.headerRight}>
           <TouchableOpacity
             style={styles.headerIconButton}
+            onPress={() => {
+              fetchAllVehicles();
+            }}
+          >
+            <Text style={styles.headerIconText}>🔄</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.headerIconButton}
             onPress={() => setShowFilterSheet(true)}
           >
-            <Text style={styles.headerIconText}>⚙️</Text>
+            <Text style={styles.headerIconText}>🔽</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.headerIconButton}

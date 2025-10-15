@@ -387,12 +387,20 @@ export default function UserScreen() {
         <Text style={styles.welcomeText}>
           Welcome, {user?.firstName || 'User'}!
         </Text>
-        <TouchableOpacity
-          style={styles.signOutButton}
-          onPress={handleSignOut}
-        >
-          <Text style={styles.signOutText}>Sign Out</Text>
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity
+            style={styles.reloadButton}
+            onPress={fetchMyVehicles}
+          >
+            <Text style={styles.reloadButtonText}>🔄</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.signOutButton}
+            onPress={handleSignOut}
+          >
+            <Text style={styles.signOutText}>Sign Out</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <Text style={styles.sectionTitle}>My Registered Vehicles</Text>
@@ -657,6 +665,21 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#333',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  reloadButton: {
+    backgroundColor: '#4a90e2',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    marginRight: 8,
+  },
+  reloadButtonText: {
+    fontSize: 18,
   },
   signOutButton: {
     backgroundColor: '#f44336',
