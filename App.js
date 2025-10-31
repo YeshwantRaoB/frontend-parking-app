@@ -10,6 +10,7 @@ import {
 import * as SecureStore from 'expo-secure-store';
 import * as WebBrowser from 'expo-web-browser';
 import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
 import { API_BASE_URL } from './config';
 
 // Import screens
@@ -62,25 +63,47 @@ Notifications.setNotificationHandler({
 // Register for push notifications
 const registerForPushNotificationsAsync = async (getToken) => {
   try {
+    console.log('Starting push notification registration...');
+
+    // Check if running in Expo Go
+    const isExpoGo = !Constants.executionEnvironment;
+    console.log('Is Expo Go:', isExpoGo);
+
+    if (isExpoGo) {
+      console.log('Running in Expo Go - push notifications may not work properly');
+      // For Expo Go, we'll skip Firebase-dependent features
+      return null;
+    }
+
+    // Wait for app to be ready
+    await new Promise(resolve => setTimeout(resolve, 3000));
+
+    // Check if notifications are supported
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    console.log('Existing notification permission status:', existingStatus);
+
     let finalStatus = existingStatus;
 
     if (existingStatus !== 'granted') {
       const { status } = await Notifications.requestPermissionsAsync();
       finalStatus = status;
+      console.log('Requested permission, new status:', finalStatus);
     }
 
     if (finalStatus !== 'granted') {
       console.log('Failed to get push token for push notification!');
-      return;
+      return null;
     }
 
+    // Get the push token
+    console.log('Getting Expo push token...');
     const token = (await Notifications.getExpoPushTokenAsync()).data;
-    console.log('Push token:', token);
+    console.log('Push token obtained:', token);
 
     // Send token to server
     const authToken = await getToken();
     if (authToken) {
+      console.log('Sending token to server...');
       await fetch(`${API_BASE_URL}/register-push-token`, {
         method: 'POST',
         headers: {
@@ -89,11 +112,14 @@ const registerForPushNotificationsAsync = async (getToken) => {
         },
         body: JSON.stringify({ pushToken: token }),
       });
+      console.log('Token registered with server successfully');
     }
 
     return token;
   } catch (error) {
     console.error('Error registering for push notifications:', error);
+    // Don't throw error, just log it - notifications are not critical
+    return null;
   }
 };
 
@@ -108,6 +134,7 @@ function AppContent() {
       registerForPushNotificationsAsync(getToken);
     }
   }, [isSignedIn, user, getToken]);
+
 
   // Show loading state while Clerk is initializing
   if (!isLoaded || !userLoaded) {

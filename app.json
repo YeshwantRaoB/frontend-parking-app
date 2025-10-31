@@ -19,23 +19,38 @@
       }
     },
     "android": {
+      "googleServicesFile": "./android/app/google-services.json",
       "permissions": [
         "CAMERA",
-        "CAMERA"
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE"
       ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/logo.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.yrb.kptparking"
+      "package": "com.yrb.kptparking",
+      "config": {
+        "googleServicesFile": "./android/app/google-services.json"
+      }
     },
     "web": {
       "favicon": "./assets/logo.png"
     },
     "scheme": "college-parking-app",
     "plugins": [
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/logo.png",
+          "color": "#ffffff",
+          "defaultChannel": "default",
+          "sounds": []
+        }
+      ]
     ],
     "extra": {
       "eas": {
