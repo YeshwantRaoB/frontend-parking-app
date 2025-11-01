@@ -19,7 +19,7 @@
       }
     },
     "android": {
-      "googleServicesFile": "./android/app/google-services.json",
+      "googleServicesFile": "./google-services.json",
       "permissions": [
         "CAMERA",
         "android.permission.POST_NOTIFICATIONS",
@@ -31,10 +31,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.yrb.kptparking",
-      "config": {
-        "googleServicesFile": "./android/app/google-services.json"
-      }
+      "package": "com.yrb.kptparking"
     },
     "web": {
       "favicon": "./assets/logo.png"
@@ -42,6 +39,7 @@
     "scheme": "college-parking-app",
     "plugins": [
       "expo-web-browser",
+      "@react-native-firebase/app",
       [
         "expo-notifications",
         {
@@ -50,7 +48,8 @@
           "defaultChannel": "default",
           "sounds": []
         }
-      ]
+      ],
+      "expo-font"
     ],
     "extra": {
       "eas": {

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { View, Text, ActivityIndicator } from 'react-native';
+import { View, Text, ActivityIndicator, Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import {
@@ -11,6 +11,8 @@ import * as SecureStore from 'expo-secure-store';
 import * as WebBrowser from 'expo-web-browser';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
+import * as Device from 'expo-device';
+import messaging from '@react-native-firebase/messaging';
 import { API_BASE_URL } from './config';
 
 // Import screens
@@ -60,25 +62,55 @@ Notifications.setNotificationHandler({
   }),
 });
 
+// Request Firebase messaging permission
+const requestFirebasePermission = async () => {
+  try {
+    if (Platform.OS === 'ios') {
+      const authStatus = await messaging().requestPermission();
+      const enabled =
+        authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+        authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+      
+      if (enabled) {
+        console.log('iOS Firebase authorization status:', authStatus);
+      }
+      return enabled;
+    }
+    return true; // Android doesn't need this step
+  } catch (error) {
+    console.error('Error requesting Firebase permission:', error);
+    return false;
+  }
+};
+
 // Register for push notifications
 const registerForPushNotificationsAsync = async (getToken) => {
   try {
     console.log('Starting push notification registration...');
 
-    // Check if running in Expo Go
-    const isExpoGo = !Constants.executionEnvironment;
-    console.log('Is Expo Go:', isExpoGo);
-
-    if (isExpoGo) {
-      console.log('Running in Expo Go - push notifications may not work properly');
-      // For Expo Go, we'll skip Firebase-dependent features
+    // Check if running on a physical device
+    if (!Device.isDevice) {
+      console.log('Must use physical device for push notifications');
       return null;
     }
 
-    // Wait for app to be ready
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    // Check if running in Expo Go
+    const isExpoGo = Constants.executionEnvironment === 'storeClient';
+    console.log('Is Expo Go:', isExpoGo);
 
-    // Check if notifications are supported
+    if (isExpoGo) {
+      console.log('Running in Expo Go - push notifications may not work properly with FCM');
+      return null;
+    }
+
+    // Request Firebase permission (iOS only)
+    const hasFirebasePermission = await requestFirebasePermission();
+    if (!hasFirebasePermission && Platform.OS === 'ios') {
+      console.log('Firebase permission not granted');
+      return null;
+    }
+
+    // Request notification permissions
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     console.log('Existing notification permission status:', existingStatus);
 
@@ -95,29 +127,46 @@ const registerForPushNotificationsAsync = async (getToken) => {
       return null;
     }
 
-    // Get the push token
-    console.log('Getting Expo push token...');
-    const token = (await Notifications.getExpoPushTokenAsync()).data;
-    console.log('Push token obtained:', token);
+    // Get Firebase Cloud Messaging token
+    console.log('Getting FCM token...');
+    const fcmToken = await messaging().getToken();
+    console.log('FCM token obtained:', fcmToken);
 
-    // Send token to server
+    // Also get Expo push token for compatibility
+    let expoPushToken = null;
+    try {
+      const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+      if (projectId) {
+        expoPushToken = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+        console.log('Expo push token obtained:', expoPushToken);
+      }
+    } catch (error) {
+      console.log('Could not get Expo push token:', error.message);
+    }
+
+    // Send tokens to server
     const authToken = await getToken();
     if (authToken) {
-      console.log('Sending token to server...');
+      console.log('Sending tokens to server...');
       await fetch(`${API_BASE_URL}/register-push-token`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${authToken}`,
         },
-        body: JSON.stringify({ pushToken: token }),
+        body: JSON.stringify({ 
+          pushToken: expoPushToken || fcmToken,
+          fcmToken: fcmToken,
+          platform: Platform.OS
+        }),
       });
-      console.log('Token registered with server successfully');
+      console.log('Tokens registered with server successfully');
     }
 
-    return token;
+    return fcmToken;
   } catch (error) {
     console.error('Error registering for push notifications:', error);
+    console.error('Error details:', error.message);
     // Don't throw error, just log it - notifications are not critical
     return null;
   }
@@ -135,6 +184,43 @@ function AppContent() {
     }
   }, [isSignedIn, user, getToken]);
 
+  // Handle foreground notifications
+  React.useEffect(() => {
+    const unsubscribeForeground = messaging().onMessage(async remoteMessage => {
+      console.log('Foreground notification received:', remoteMessage);
+      
+      // Show local notification when app is in foreground
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: remoteMessage.notification?.title || 'New Notification',
+          body: remoteMessage.notification?.body || '',
+          data: remoteMessage.data,
+        },
+        trigger: null,
+      });
+    });
+
+    // Handle notification opened when app is in background
+    const unsubscribeBackground = messaging().onNotificationOpenedApp(remoteMessage => {
+      console.log('Notification opened from background:', remoteMessage);
+      // Handle navigation based on notification data if needed
+    });
+
+    // Check if app was opened by a notification
+    messaging()
+      .getInitialNotification()
+      .then(remoteMessage => {
+        if (remoteMessage) {
+          console.log('App opened by notification:', remoteMessage);
+          // Handle navigation based on notification data if needed
+        }
+      });
+
+    return () => {
+      unsubscribeForeground();
+      unsubscribeBackground();
+    };
+  }, []);
 
   // Show loading state while Clerk is initializing
   if (!isLoaded || !userLoaded) {

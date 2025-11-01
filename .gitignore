@@ -40,6 +40,8 @@ yarn-error.*
 /ios
 /android
 
-./frontend/parking-app-4b33b-firebase-adminsdk-fbsvc-0e54d2d164.json
-./frontend/parking-app-4b33b-firebase-config.js
+# Firebase admin SDK private key
+parking-app-4b33b-firebase-adminsdk-fbsvc-0e54d2d164.json
+google-services.json
+./parking-app-4b33b-firebase-adminsdk-fbsvc-0e54d2d164.json
 ./google-services.json
