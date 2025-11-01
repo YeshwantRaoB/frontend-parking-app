@@ -25,6 +25,7 @@ import LicensePlateScanner from './components/LicensePlateScanner';
 import VehicleDetailsModal from './components/VehicleDetailsModal';
 import StatsOverview from './components/admin/StatsOverview';
 import StatsPanel from './components/admin/StatsPanel';
+import DetailedStatistics from './components/admin/DetailedStatistics';
 import WhitelistManager from './components/admin/WhitelistManager';
 
 // Branch/Department options (same as registration screen)
@@ -93,6 +94,7 @@ export default function AdminScreen() {
   const [showLicensePlateScanner, setShowLicensePlateScanner] = useState(false);
   const [showVehicleDetailsModal, setShowVehicleDetailsModal] = useState(false);
   const [showStatsPanel, setShowStatsPanel] = useState(false);
+  const [showDetailedStatistics, setShowDetailedStatistics] = useState(false);
   const [showAddAdminModal, setShowAddAdminModal] = useState(false);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
@@ -1079,8 +1081,16 @@ export default function AdminScreen() {
           <TouchableOpacity
             style={styles.headerIconButton}
             onPress={() => setShowStatsPanel(true)}
+            title="Quick Stats"
           >
             <Text style={styles.headerIconText}>📊</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.headerIconButton}
+            onPress={() => setShowDetailedStatistics(true)}
+            title="Detailed Statistics"
+          >
+            <Text style={styles.headerIconText}>📈</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.overflowMenuButton}
@@ -1487,7 +1497,7 @@ export default function AdminScreen() {
       <Modal visible={showStatsPanel} animationType="slide" transparent={false}>
         <View style={styles.statsModalContainer}>
           <View style={styles.statsModalHeader}>
-            <Text style={styles.statsModalTitle}>Detailed Statistics</Text>
+            <Text style={styles.statsModalTitle}>Quick Statistics</Text>
             <TouchableOpacity
               style={styles.statsModalCloseButton}
               onPress={() => setShowStatsPanel(false)}
@@ -1503,6 +1513,22 @@ export default function AdminScreen() {
             activeFilter={statsFilter}
           />
         </View>
+      </Modal>
+
+      {/* Detailed Statistics Modal */}
+      <Modal visible={showDetailedStatistics} animationType="slide" transparent={false}>
+        <SafeAreaView style={styles.detailedStatsModalContainer}>
+          <View style={styles.detailedStatsModalHeader}>
+            <Text style={styles.detailedStatsModalTitle}>Detailed Statistics Dashboard</Text>
+            <TouchableOpacity
+              style={styles.detailedStatsModalCloseButton}
+              onPress={() => setShowDetailedStatistics(false)}
+            >
+              <Text style={styles.detailedStatsModalCloseText}>✕ Close</Text>
+            </TouchableOpacity>
+          </View>
+          <DetailedStatistics />
+        </SafeAreaView>
       </Modal>
 
       {/* Overflow Menu Modal */}
@@ -3049,28 +3075,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 18,
-    paddingTop: 60,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 16,
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
-    shadowColor: '#6366f1',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 6,
   },
   statsModalTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '800',
     color: '#1e293b',
-    letterSpacing: 0.5,
   },
   statsModalCloseButton: {
-    backgroundColor: '#ef4444',
-    borderRadius: 20,
-    width: 44,
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#f1f5f9',
     height: 44,
     justifyContent: 'center',
     alignItems: 'center',
@@ -3081,8 +3101,46 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   statsModalCloseText: {
+    fontSize: 20,
+    color: '#64748b',
+    fontWeight: '600',
+  },
+  // Detailed stats modal styles
+  detailedStatsModalContainer: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+  },
+  detailedStatsModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 12,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 2,
+    borderBottomColor: '#6366f1',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  detailedStatsModalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#1e293b',
+    letterSpacing: 0.3,
+  },
+  detailedStatsModalCloseButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#6366f1',
+  },
+  detailedStatsModalCloseText: {
+    fontSize: 14,
     color: '#ffffff',
-    fontSize: 18,
     fontWeight: '700',
   },
 
