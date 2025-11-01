@@ -108,7 +108,12 @@ const LicensePlateScanner = ({ visible, onClose, onVehicleFound }) => {
       }
 
       const data = await apiResponse.json();
-      console.log('Plate recognition response:', data);
+      console.log('Plate recognition response:', JSON.stringify(data, null, 2));
+
+      // Validate response structure
+      if (!data || typeof data !== 'object') {
+        throw new Error('Invalid response from plate recognition service');
+      }
 
       return data;
     } catch (error) {
@@ -198,12 +203,15 @@ const LicensePlateScanner = ({ visible, onClose, onVehicleFound }) => {
       const processedImageUri = await preprocessImage(photo.uri);
       const scanResult = await performOCR(processedImageUri);
       
+      console.log('Scan result received:', scanResult);
+      
       // Check if plate was detected
       if (!scanResult.plateDetected) {
         setExtractedText('No plate detected');
+        const errorMessage = scanResult.message || 'Could not detect a valid license plate. Please try again with better lighting and ensure the plate is clearly visible.';
         Alert.alert(
           'No License Plate Detected',
-          'Could not detect a valid license plate. Please try again with better lighting and ensure the plate is clearly visible.',
+          errorMessage + '\n\nTips:\n• Ensure good lighting\n• Hold camera steady\n• Position plate within frame\n• Clean the license plate',
           [
             { text: 'Retry', onPress: () => setShowPreview(false) },
             { text: 'Cancel', onPress: onClose }
@@ -214,14 +222,18 @@ const LicensePlateScanner = ({ visible, onClose, onVehicleFound }) => {
 
       // Set the detected plate text for display
       const detectedPlate = scanResult.detectedPlate;
-      const confidence = scanResult.confidence ? `(${Math.round(scanResult.confidence * 100)}% confidence)` : '';
-      setExtractedText(`${detectedPlate} ${confidence}`);
+      const confidence = scanResult.confidence || 0;
+      const confidencePercent = Math.round(confidence * 100);
+      const confidenceText = confidence ? `(${confidencePercent}% confidence)` : '';
+      const confidenceEmoji = confidence >= 0.7 ? '✓' : confidence >= 0.5 ? '~' : '?';
+      setExtractedText(`${detectedPlate} ${confidenceText}`);
 
       // Check if vehicle was found in database
       if (scanResult.found && scanResult.vehicle) {
+        const matchInfo = scanResult.matchType === 'fuzzy' ? '\n⚠️ Fuzzy match - please verify' : '';
         Alert.alert(
           'Vehicle Found! ✅',
-          `License Plate: ${detectedPlate}\n${confidence}\n\nOwner: ${scanResult.vehicle.fullName}\nDesignation: ${scanResult.vehicle.designation}\nBranch: ${scanResult.vehicle.branch}${scanResult.vehicle.registerNumber ? `\nRegister Number: ${scanResult.vehicle.registerNumber}` : ''}${scanResult.vehicle.department ? `\nDepartment: ${scanResult.vehicle.department}` : ''}`,
+          `License Plate: ${detectedPlate} ${confidenceEmoji}\nConfidence: ${confidencePercent}%${matchInfo}\n\nOwner: ${scanResult.vehicle.fullName}\nDesignation: ${scanResult.vehicle.designation}\nBranch: ${scanResult.vehicle.branch}${scanResult.vehicle.registerNumber ? `\nRegister Number: ${scanResult.vehicle.registerNumber}` : ''}${scanResult.vehicle.department ? `\nDepartment: ${scanResult.vehicle.department}` : ''}`,
           [
             {
               text: 'View Details',
@@ -236,7 +248,7 @@ const LicensePlateScanner = ({ visible, onClose, onVehicleFound }) => {
       } else {
         Alert.alert(
           'Vehicle Not Registered ❌',
-          `License Plate Detected: ${detectedPlate}\n${confidence}\n\nThis vehicle is not registered in the system.`,
+          `License Plate Detected: ${detectedPlate} ${confidenceEmoji}\nConfidence: ${confidencePercent}%\n\nThis vehicle is not registered in the system.${confidence < 0.5 ? '\n\n⚠️ Low confidence - consider retrying with better lighting if this seems incorrect.' : ''}`,
           [
             { text: 'Scan Another', onPress: () => setShowPreview(false) },
             { text: 'Close', onPress: onClose }

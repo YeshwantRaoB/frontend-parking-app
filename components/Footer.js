@@ -159,7 +159,7 @@ export default function Footer() {
               KPT Parking Manager
             </Text>
             <Text style={[styles.subtitle, isDark && styles.subtitleDark]}>
-              v2.12 • Smart Campus Solutions
+              v3.2 • Smart Campus Solutions
             </Text>
           </View>
 
@@ -207,7 +207,7 @@ export default function Footer() {
             <Animated.View style={{ transform: [{ scale: nameScale }] }}>
               <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 2 }}>
                 <Text style={[styles.devText, { textAlign: 'center' }]}>
-                  Designed by{' '}
+                  Designed & Developed by{' '}
                 </Text>
                 <Animated.Text
                   style={[
