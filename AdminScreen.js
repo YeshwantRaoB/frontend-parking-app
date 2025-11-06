@@ -15,6 +15,8 @@ import {
   Linking,
   Animated,
   SafeAreaView,
+  RefreshControl,
+  StatusBar,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth, useUser } from '@clerk/clerk-expo';
@@ -61,8 +63,6 @@ const STAFF_POSITION_OPTIONS = ['HOD', 'Lecturer'];
 // Vehicle type options
 const VEHICLE_TYPE_OPTIONS = ['2 Wheeler', '4 Wheeler'];
 
-
-
 // Helper function to check if user is admin
 const isUserAdmin = (user) => {
   return user?.publicMetadata?.role === 'admin';
@@ -75,6 +75,7 @@ export default function AdminScreen() {
   const [vehicles, setVehicles] = useState([]);
   const [allVehicles, setAllVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [error, setError] = useState('');
 
@@ -226,8 +227,12 @@ export default function AdminScreen() {
   };
 
   // Fetch all vehicles from backend (using existing API)
-  const fetchAllVehicles = async () => {
-    setLoading(true);
+  const fetchAllVehicles = async (isRefresh = false) => {
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
     try {
       const token = await getToken();
       if (!token) {
@@ -264,11 +269,22 @@ export default function AdminScreen() {
 
     } catch (error) {
       console.error('Error fetching vehicles:', error);
-      Alert.alert('Error', error.message || 'Failed to load vehicles');
+      if (!isRefresh) {
+        Alert.alert('Error', error.message || 'Failed to load vehicles');
+      }
     } finally {
-      setLoading(false);
+      if (isRefresh) {
+        setRefreshing(false);
+      } else {
+        setLoading(false);
+      }
     }
   };
+
+  // Handle pull-to-refresh
+  const onRefresh = useCallback(() => {
+    fetchAllVehicles(true);
+  }, []);
 
   // Unified client-side filtering and sorting
   const applyClientSideFiltering = useCallback((vehicleData, filters, query, sortField, sortDirection) => {
@@ -377,8 +393,6 @@ export default function AdminScreen() {
     setVehicles(filtered);
     setTotalResults(filtered.length);
   }, []);
-
-
 
   // Filter management
   const clearAllFilters = useCallback(() => {
@@ -674,19 +688,15 @@ export default function AdminScreen() {
     } else if (type === 'designation') {
       newFilters.designation = value;
       newFilters.staffPosition = ''; // Clear staff position when changing designation
-      setQuickFilterActive(value === 'Student' ? 'students' : 'staff');
     } else if (type === 'branch') {
       newFilters.branch = value;
       newFilters.designation = 'Student'; // Branches are only for students
-      setQuickFilterActive('');
     } else if (type === 'recent') {
       newFilters.dateRange = 'last30days';
-      setQuickFilterActive('recent');
     }
     
     setActiveFilters(newFilters);
-    setPage(1);
-    applyClientSideFiltering(allVehicles, newFilters, searchText.trim(), sortBy, sortOrder);
+    applyClientSideFiltering(allVehicles, newFilters, searchQuery.trim(), sortBy, sortOrder);
   };
 
   // License plate scanner handlers
@@ -929,95 +939,103 @@ export default function AdminScreen() {
   };
 
   const renderVehicle = useCallback(({ item, index }) => {
-    // Enhanced Debug: Log all vehicle data to identify owner photo issue
-    console.log('=== ADMIN SCREEN VEHICLE DATA ===');
-    console.log('License Plate:', item.licencePlate);
-    console.log('Vehicle Photo URL:', item.vehiclePhotoUrl);
-    console.log('Owner Photo URL:', item.ownerPhotoUrl);
-    console.log('Legacy Photo URL:', item.photoUrl);
-    console.log('All item keys:', Object.keys(item));
-    console.log('Owner photo exists?', !!item.ownerPhotoUrl);
-    console.log('Owner photo type:', typeof item.ownerPhotoUrl);
-    console.log('==================================');
-
     return (
       <View style={styles.itemContainer}>
+        {/* Header Section */}
         <View style={styles.vehicleHeader}>
-          <Text style={styles.plate}>{item.licencePlate}</Text>
+          <View style={styles.plateSection}>
+            <View style={styles.plateBadge}>
+              <Text style={styles.plate}>{item.licencePlate}</Text>
+            </View>
+            <View style={styles.roleIndicator}>
+              <Text style={styles.roleText}>
+                {item.designation === 'Student' ? '🎓 Student' : '👔 Staff'}
+              </Text>
+            </View>
+          </View>
           <Text style={styles.dateText}>
-            {new Date(item.createdAt).toLocaleDateString()}
+            {new Date(item.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
           </Text>
         </View>
-        <Text style={styles.vehicleDetail}>Name: {item.fullName}</Text>
 
-        {/* Phone Number with Call Button */}
-        {item.phoneNumber && (
-          <View style={styles.phoneContainer}>
-            <Text style={styles.phoneNumber}>📞 {item.phoneNumber}</Text>
-            <TouchableOpacity
-              style={styles.callButton}
-              onPress={() => handleDirectCall(item.phoneNumber, `${item.licencePlate} - ${item.fullName}`)}
-            >
-              <Text style={styles.callButtonText}>📞 Call</Text>
-            </TouchableOpacity>
+        {/* Info Grid */}
+        <View style={styles.infoGrid}>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>👤</Text>
+            <Text style={styles.infoValue} numberOfLines={1}>{item.fullName}</Text>
           </View>
-        )}
+          
+          {item.phoneNumber && (
+            <TouchableOpacity 
+              style={styles.infoRow}
+              onPress={() => handleDirectCall(item.phoneNumber, `${item.licencePlate} - ${item.fullName}`)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.infoLabel}>📞</Text>
+              <Text style={[styles.infoValue, styles.phoneLink]}>{item.phoneNumber}</Text>
+            </TouchableOpacity>
+          )}
 
-        <Text style={styles.vehicleDetail}>Branch: {item.branch}</Text>
-        <Text style={styles.vehicleDetail}>Designation: {item.designation}</Text>
-        {item.registerNumber && (
-          <Text style={styles.vehicleDetail}>Register No: {item.registerNumber}</Text>
-        )}
-        {(item.staffPosition || item.department) && (
-          <Text style={styles.vehicleDetail}>Position: {item.staffPosition || item.department}</Text>
-        )}
-        {item.vehicleName && (
-          <Text style={styles.vehicleDetail}>Vehicle: {item.vehicleName}</Text>
-        )}
-        {item.vehicleType && (
-          <Text style={styles.vehicleDetail}>Type: {item.vehicleType}</Text>
-        )}
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>🏛️</Text>
+            <Text style={styles.infoValue} numberOfLines={1}>{item.branch}</Text>
+          </View>
 
-        {/* Photo Section - Button Only */}
-        <View style={styles.photoSection}>
-          <Text style={styles.photoSectionTitle}>📷 Photos</Text>
-          <View style={styles.photoButtonsContainer}>
-            {/* Vehicle Photo Button */}
-            {(item.vehiclePhotoUrl || (item.photoUrl && !item.ownerPhotoUrl)) ? (
+          {item.designation === 'Student' && item.registerNumber && (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>🎫</Text>
+              <Text style={styles.infoValue}>{item.registerNumber}</Text>
+            </View>
+          )}
+
+          {item.designation === 'Staff' && (item.staffPosition || item.department) && (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>💼</Text>
+              <Text style={styles.infoValue}>{item.staffPosition || item.department}</Text>
+            </View>
+          )}
+
+          {item.vehicleName && (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>🚗</Text>
+              <Text style={styles.infoValue} numberOfLines={1}>
+                {item.vehicleName} {item.vehicleType && `• ${item.vehicleType}`}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Action Row */}
+        <View style={styles.actionRow}>
+          {/* Photo Buttons */}
+          <View style={styles.photoActions}>
+            {(item.vehiclePhotoUrl || (item.photoUrl && !item.ownerPhotoUrl)) && (
               <TouchableOpacity
-                style={styles.photoViewButton}
+                style={styles.photoBtn}
                 onPress={() => showPhoto(item.vehiclePhotoUrl || item.photoUrl, 'Vehicle Photo', `${item.licencePlate} - ${item.fullName}`)}
               >
-                <Text style={styles.photoViewButtonText}>🚗 View Vehicle Photo</Text>
+                <Text style={styles.photoBtnText}>🚗</Text>
               </TouchableOpacity>
-            ) : (
-              <View style={styles.photoUnavailableButton}>
-                <Text style={styles.photoUnavailableText}>🚗 No Vehicle Photo</Text>
-              </View>
             )}
-
-            {/* Owner Photo Button */}
-            {item.ownerPhotoUrl ? (
+            {item.ownerPhotoUrl && (
               <TouchableOpacity
-                style={styles.photoViewButton}
+                style={styles.photoBtn}
                 onPress={() => showPhoto(item.ownerPhotoUrl, 'Owner Photo', `${item.licencePlate} - ${item.fullName}`)}
               >
-                <Text style={styles.photoViewButtonText}>👤 View Owner Photo</Text>
+                <Text style={styles.photoBtnText}>👤</Text>
               </TouchableOpacity>
-            ) : (
-              <View style={styles.photoUnavailableButton}>
-                <Text style={styles.photoUnavailableText}>👤 No Owner Photo</Text>
-              </View>
             )}
           </View>
-        </View>
-        <View style={styles.itemButtons}>
-          <TouchableOpacity onPress={() => openEditModal(item)} style={styles.editBtn}>
-            <Text style={styles.editText}>Edit</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => deleteVehicle(item)} style={styles.deleteBtn}>
-            <Text style={styles.deleteText}>Delete</Text>
-          </TouchableOpacity>
+
+          {/* Edit/Delete Buttons */}
+          <View style={styles.itemButtons}>
+            <TouchableOpacity onPress={() => openEditModal(item)} style={styles.editBtn}>
+              <Text style={styles.editText}>✏️ Edit</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => deleteVehicle(item)} style={styles.deleteBtn}>
+              <Text style={styles.deleteText}>🗑️</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     );
@@ -1053,8 +1071,9 @@ export default function AdminScreen() {
   }
 
   return (
-    <View style={styles.mainContainer}>
-      <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.mainContainer}>
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      <View style={styles.container}>
       {/* Header - Row 1: Title and Results Count */}
       <View style={styles.headerRow1}>
         <View style={styles.headerLeft}>
@@ -1066,24 +1085,9 @@ export default function AdminScreen() {
         <View style={styles.headerRight}>
           <TouchableOpacity
             style={styles.headerIconButton}
-            onPress={() => {
-              fetchAllVehicles();
-            }}
-          >
-            <Text style={styles.headerIconText}>🔄</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.headerIconButton}
             onPress={() => setShowFilterSheet(true)}
           >
             <Text style={styles.headerIconText}>🔽</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.headerIconButton}
-            onPress={() => setShowStatsPanel(true)}
-            title="Quick Stats"
-          >
-            <Text style={styles.headerIconText}>📊</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.headerIconButton}
@@ -1205,6 +1209,14 @@ export default function AdminScreen() {
               keyExtractor={(item) => item._id}
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.listContainer}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  colors={['#6366f1']}
+                  tintColor="#6366f1"
+                />
+              }
             />
           </Animated.View>
         )}
@@ -1611,9 +1623,9 @@ export default function AdminScreen() {
         onClose={() => setShowWhitelistManager(false)}
       />
 
-      </SafeAreaView>
+      </View>
       <Footer />
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -1709,24 +1721,24 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
-    borderRadius: 16,
-    borderWidth: 1,
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    borderWidth: 2,
     borderColor: '#e2e8f0',
     shadowColor: '#6366f1',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   searchInput: {
     flex: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 18,
-    fontSize: 16,
+    paddingVertical: 13,
+    paddingHorizontal: 16,
+    fontSize: 15,
     color: '#1e293b',
-    fontWeight: '500',
-    letterSpacing: 0.2,
+    fontWeight: '600',
+    letterSpacing: 0.3,
   },
   searchIcon: {
     paddingHorizontal: 16,
@@ -2503,101 +2515,148 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
   },
-  noRecords: {
-    textAlign: 'center',
-    fontSize: 18,
-    color: '#666',
-    fontWeight: '600',
-  },
+  // Compact Vehicle Card Styles
   itemContainer: {
     backgroundColor: '#ffffff',
-    borderRadius: 24,
-    padding: 24,
-    marginBottom: 20,
-    shadowColor: '#6366f1',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 10,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    marginHorizontal: 2,
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    borderLeftWidth: 6,
-    borderLeftColor: '#6366f1',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
   },
   vehicleHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  plateSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  plateBadge: {
+    backgroundColor: '#6366f1',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
   },
   plate: {
     fontWeight: '900',
-    fontSize: 22,
-    color: '#1e293b',
-    letterSpacing: 0.8,
+    fontSize: 15,
+    color: '#ffffff',
+    letterSpacing: 1,
     textTransform: 'uppercase',
   },
-  dateText: {
-    fontSize: 14,
-    color: '#64748b',
-    fontWeight: '600',
+  roleIndicator: {
     backgroundColor: '#f1f5f9',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
   },
-  vehicleDetail: {
-    fontSize: 16,
-    color: '#475569',
-    marginBottom: 8,
+  roleText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748b',
+  },
+  dateText: {
+    fontSize: 11,
+    color: '#94a3b8',
     fontWeight: '600',
-    lineHeight: 22,
-    letterSpacing: 0.2,
   },
-  phoneContainer: {
+  infoGrid: {
+    gap: 8,
+    marginBottom: 12,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  infoLabel: {
+    fontSize: 16,
+    width: 24,
+  },
+  infoValue: {
+    fontSize: 14,
+    color: '#334155',
+    fontWeight: '600',
+    flex: 1,
+  },
+  phoneLink: {
+    color: '#6366f1',
+    textDecorationLine: 'underline',
+  },
+  actionRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#eff6ff',
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 16,
+    marginTop: 4,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+  },
+  photoActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  photoBtn: {
+    backgroundColor: '#f8fafc',
     borderWidth: 1,
-    borderColor: '#dbeafe',
-    borderLeftWidth: 5,
-    borderLeftColor: '#6366f1',
-    shadowColor: '#6366f1',
+    borderColor: '#e2e8f0',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  photoBtnText: {
+    fontSize: 18,
+  },
+  itemButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  editBtn: {
+    backgroundColor: '#10b981',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    shadowColor: '#10b981',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 2,
   },
-  phoneNumber: {
-    fontSize: 17,
-    color: '#6366f1',
-    fontWeight: '800',
-    fontFamily: 'monospace',
-    flex: 1,
-    letterSpacing: 0.8,
-  },
-  callButton: {
-    backgroundColor: '#10b981',
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 12,
-    shadowColor: '#10b981',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  callButtonText: {
+  editText: {
     color: '#ffffff',
-    fontSize: 14,
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  deleteBtn: {
+    backgroundColor: '#ef4444',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    shadowColor: '#ef4444',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  deleteText: {
+    color: '#ffffff',
     fontWeight: '800',
-    letterSpacing: 0.4,
+    fontSize: 15,
   },
   // Photo Section Styles - Button Only
   photoSection: {
@@ -2661,53 +2720,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     letterSpacing: 0.3,
   },
-  // Pagination removed - showing all results
-  itemButtons: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: 20,
-    gap: 14,
-  },
-  editBtn: {
-    backgroundColor: '#10b981',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 14,
-    shadowColor: '#10b981',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-    minWidth: 90,
-    alignItems: 'center',
-  },
-  editText: {
-    color: '#ffffff',
-    fontWeight: '800',
-    fontSize: 15,
-    letterSpacing: 0.4,
-    textTransform: 'uppercase',
-  },
-  deleteBtn: {
-    backgroundColor: '#ef4444',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 14,
-    shadowColor: '#ef4444',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-    minWidth: 90,
-    alignItems: 'center',
-  },
-  deleteText: {
-    color: '#ffffff',
-    fontWeight: '800',
-    fontSize: 15,
-    letterSpacing: 0.4,
-    textTransform: 'uppercase',
-  },
+  // Modal Styles
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.8)',

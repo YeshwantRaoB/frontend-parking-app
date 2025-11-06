@@ -8,6 +8,8 @@ import {
   Dimensions,
   Animated,
   RefreshControl,
+  SafeAreaView,
+  StatusBar,
 } from 'react-native';
 import { BarChart, PieChart, LineChart } from 'react-native-chart-kit';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -468,13 +470,15 @@ const DetailedStatistics = () => {
   if (!stats) return renderNoData('No data available');
 
   return (
-    <ScrollView
-      style={styles.container}
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[COLORS.primary]} />
-      }
-    >
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      <ScrollView
+        style={styles.container}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[COLORS.primary]} />
+        }
+      >
       {/* Header */}
       <View style={styles.header}>
         <View>
@@ -536,13 +540,18 @@ const DetailedStatistics = () => {
 
       <View style={{ height: 40 }} />
     </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+  },
   container: {
     flex: 1,
-    backgroundColor: COLORS.light,
+    backgroundColor: COLORS.surface,
   },
   header: {
     padding: 20,
