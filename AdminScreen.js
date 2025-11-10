@@ -29,6 +29,7 @@ import StatsOverview from './components/admin/StatsOverview';
 import StatsPanel from './components/admin/StatsPanel';
 import DetailedStatistics from './components/admin/DetailedStatistics';
 import WhitelistManager from './components/admin/WhitelistManager';
+import DailyLogViewer from './components/admin/DailyLogViewer';
 
 // Branch/Department options (same as registration screen)
 const BRANCH_OPTIONS = [
@@ -105,6 +106,7 @@ export default function AdminScreen() {
   const [showEditVehicleTypeModal, setShowEditVehicleTypeModal] = useState(false);
   const [showOverflowMenu, setShowOverflowMenu] = useState(false);
   const [showWhitelistManager, setShowWhitelistManager] = useState(false);
+  const [showDailyLog, setShowDailyLog] = useState(false);
 
   // Data state
   const [selectedVehicle, setSelectedVehicle] = useState(null);
@@ -1561,6 +1563,20 @@ export default function AdminScreen() {
                 style={styles.overflowMenuItem}
                 onPress={() => {
                   setShowOverflowMenu(false);
+                  setShowDailyLog(true);
+                }}
+              >
+                <Text style={styles.overflowMenuItemIcon}>📅</Text>
+                <View style={styles.overflowMenuItemContent}>
+                  <Text style={styles.overflowMenuItemTitle}>Daily Vehicle Log</Text>
+                  <Text style={styles.overflowMenuItemSubtitle}>View entry/exit records</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.overflowMenuItem}
+                onPress={() => {
+                  setShowOverflowMenu(false);
                   setShowWhitelistManager(true);
                 }}
               >
@@ -1621,6 +1637,12 @@ export default function AdminScreen() {
       <WhitelistManager
         visible={showWhitelistManager}
         onClose={() => setShowWhitelistManager(false)}
+      />
+
+      {/* Daily Log Viewer Modal */}
+      <DailyLogViewer
+        visible={showDailyLog}
+        onClose={() => setShowDailyLog(false)}
       />
 
       </View>
