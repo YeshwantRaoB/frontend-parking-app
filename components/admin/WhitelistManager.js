@@ -22,6 +22,7 @@ const WhitelistManager = ({ visible, onClose }) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showFilterMenu, setShowFilterMenu] = useState(false);
   
   // Add email form
   const [email, setEmail] = useState('');
@@ -278,20 +279,20 @@ const WhitelistManager = ({ visible, onClose }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Filter Tabs */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterContainer}>
-          {['all', 'pending', 'registered'].map((filter) => (
-            <TouchableOpacity
-              key={filter}
-              style={[styles.filterTab, filterStatus === filter && styles.filterTabActive]}
-              onPress={() => setFilterStatus(filter)}
-            >
-              <Text style={[styles.filterTabText, filterStatus === filter && styles.filterTabTextActive]}>
-                {filter.charAt(0).toUpperCase() + filter.slice(1)}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        {/* Filter Bar */}
+        <View style={styles.filterBar}>
+          <Text style={styles.currentFilterText}>
+            {filterStatus === 'all' && 'Filter: All Entries'}
+            {filterStatus === 'pending' && 'Filter: ⏳ Pending'}
+            {filterStatus === 'registered' && 'Filter: ✅ Registered'}
+          </Text>
+          <TouchableOpacity
+            style={styles.hamburgerButton}
+            onPress={() => setShowFilterMenu(true)}
+          >
+            <Text style={styles.hamburgerIcon}>☰</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Search */}
         <View style={styles.searchContainer}>
@@ -357,6 +358,66 @@ const WhitelistManager = ({ visible, onClose }) => {
             )}
           </ScrollView>
         )}
+
+        {/* Filter Menu Modal */}
+        <Modal
+          visible={showFilterMenu}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setShowFilterMenu(false)}
+        >
+          <View style={styles.filterMenuOverlay}>
+            <View style={styles.filterMenuContainer}>
+              <View style={styles.filterMenuHeader}>
+                <Text style={styles.filterMenuTitle}>Select Filter</Text>
+                <TouchableOpacity
+                  style={styles.filterMenuClose}
+                  onPress={() => setShowFilterMenu(false)}
+                >
+                  <Text style={styles.filterMenuCloseText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.filterMenuContent}>
+                <TouchableOpacity
+                  style={[styles.filterMenuItem, filterStatus === 'all' && styles.filterMenuItemActive]}
+                  onPress={() => {
+                    setFilterStatus('all');
+                    setShowFilterMenu(false);
+                  }}
+                >
+                  <Text style={[styles.filterMenuItemText, filterStatus === 'all' && styles.filterMenuItemTextActive]}>
+                    All Entries
+                  </Text>
+                  {filterStatus === 'all' && <Text style={styles.checkmark}>✓</Text>}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.filterMenuItem, filterStatus === 'pending' && styles.filterMenuItemActive]}
+                  onPress={() => {
+                    setFilterStatus('pending');
+                    setShowFilterMenu(false);
+                  }}
+                >
+                  <Text style={[styles.filterMenuItemText, filterStatus === 'pending' && styles.filterMenuItemTextActive]}>
+                    ⏳ Pending
+                  </Text>
+                  {filterStatus === 'pending' && <Text style={styles.checkmark}>✓</Text>}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.filterMenuItem, filterStatus === 'registered' && styles.filterMenuItemActive]}
+                  onPress={() => {
+                    setFilterStatus('registered');
+                    setShowFilterMenu(false);
+                  }}
+                >
+                  <Text style={[styles.filterMenuItemText, filterStatus === 'registered' && styles.filterMenuItemTextActive]}>
+                    ✅ Registered
+                  </Text>
+                  {filterStatus === 'registered' && <Text style={styles.checkmark}>✓</Text>}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
 
         {/* Add Email Modal */}
         <Modal visible={showAddModal} animationType="slide" transparent={true}>
@@ -522,67 +583,179 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
-    padding: 14,
-    borderRadius: 10,
+    padding: 16,
+    borderRadius: 12,
     alignItems: 'center',
-    marginHorizontal: 4,
+    marginHorizontal: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   addButton: {
     backgroundColor: '#28a745',
+    shadowColor: '#28a745',
   },
   uploadButton: {
     backgroundColor: '#17a2b8',
+    shadowColor: '#17a2b8',
   },
   actionButtonText: {
     color: '#fff',
-    fontSize: 14,
-    fontWeight: 'bold',
+    fontSize: 15,
+    fontWeight: '700',
   },
-  filterContainer: {
-    paddingHorizontal: 16,
-    marginBottom: 12,
-  },
-  filterTab: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+  filterBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     backgroundColor: '#fff',
-    borderRadius: 20,
-    marginRight: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 12,
+    marginHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  filterTabActive: {
+  currentFilterText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#212529',
+    flex: 1,
+  },
+  hamburgerButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     backgroundColor: '#4a90e2',
+    borderRadius: 8,
+    shadowColor: '#4a90e2',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 2,
   },
-  filterTabText: {
-    fontSize: 14,
-    color: '#6c757d',
+  hamburgerIcon: {
+    fontSize: 20,
+    color: '#fff',
     fontWeight: '600',
   },
-  filterTabTextActive: {
+  filterMenuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  filterMenuContainer: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '50%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
+  },
+  filterMenuHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    backgroundColor: '#f8f9fa',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+  },
+  filterMenuTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  filterMenuClose: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: '#fff',
+  },
+  filterMenuCloseText: {
+    fontSize: 18,
+    color: '#666',
+    fontWeight: 'bold',
+  },
+  filterMenuContent: {
+    padding: 20,
+  },
+  filterMenuItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  filterMenuItemActive: {
+    backgroundColor: '#4a90e2',
+    borderColor: '#4a90e2',
+  },
+  filterMenuItemText: {
+    fontSize: 16,
+    color: '#495057',
+    fontWeight: '600',
+  },
+  filterMenuItemTextActive: {
     color: '#fff',
+    fontWeight: '700',
+  },
+  checkmark: {
+    fontSize: 18,
+    color: '#fff',
+    fontWeight: 'bold',
   },
   searchContainer: {
     flexDirection: 'row',
     paddingHorizontal: 16,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   searchInput: {
     flex: 1,
     backgroundColor: '#fff',
-    padding: 12,
-    borderRadius: 10,
-    fontSize: 14,
-    marginRight: 8,
+    padding: 14,
+    borderRadius: 25,
+    fontSize: 15,
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   searchButton: {
     backgroundColor: '#4a90e2',
-    padding: 12,
-    borderRadius: 10,
+    padding: 14,
+    borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
-    width: 50,
+    width: 55,
+    shadowColor: '#4a90e2',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 2,
   },
   searchButtonText: {
-    fontSize: 18,
+    fontSize: 20,
   },
   loadingContainer: {
     flex: 1,
@@ -619,14 +792,16 @@ const styles = StyleSheet.create({
   },
   entryCard: {
     backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
   },
   entryHeader: {
     flexDirection: 'row',
@@ -635,20 +810,24 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   entryEmail: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#212529',
     flex: 1,
   },
   statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   statusText: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#fff',
-    fontWeight: 'bold',
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   entryDetails: {
     marginBottom: 8,
@@ -673,14 +852,19 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     backgroundColor: '#dc3545',
-    padding: 10,
-    borderRadius: 8,
+    padding: 12,
+    borderRadius: 25,
     alignItems: 'center',
+    shadowColor: '#dc3545',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 2,
   },
   deleteButtonText: {
     color: '#fff',
-    fontSize: 13,
-    fontWeight: 'bold',
+    fontSize: 14,
+    fontWeight: '700',
   },
   modalOverlay: {
     flex: 1,

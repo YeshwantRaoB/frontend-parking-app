@@ -28,6 +28,7 @@ export default function DailyLogViewer({ visible, onClose }) {
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [selectedPhotoInfo, setSelectedPhotoInfo] = useState(null);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [showFilterMenu, setShowFilterMenu] = useState(false);
   const { getToken } = useAuth();
 
   useEffect(() => {
@@ -427,49 +428,22 @@ export default function DailyLogViewer({ visible, onClose }) {
           </View>
         )}
 
-        {/* Filter Buttons */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterContainer}>
+        {/* Filter Bar */}
+        <View style={styles.filterBar}>
+          <Text style={styles.currentFilterText}>
+            {filterType === 'all' && 'Filter: All Logs'}
+            {filterType === 'entry' && 'Filter: 🚗 Entries'}
+            {filterType === 'exit' && 'Filter: 🚙 Exits'}
+            {filterType === 'registered' && 'Filter: ✅ Registered'}
+            {filterType === 'unregistered' && 'Filter: ⚠️ Unregistered'}
+          </Text>
           <TouchableOpacity
-            style={[styles.filterButton, filterType === 'all' && styles.filterButtonActive]}
-            onPress={() => setFilterType('all')}
+            style={styles.hamburgerButton}
+            onPress={() => setShowFilterMenu(true)}
           >
-            <Text style={[styles.filterButtonText, filterType === 'all' && styles.filterButtonTextActive]}>
-              All
-            </Text>
+            <Text style={styles.hamburgerIcon}>☰</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.filterButton, filterType === 'entry' && styles.filterButtonActive]}
-            onPress={() => setFilterType('entry')}
-          >
-            <Text style={[styles.filterButtonText, filterType === 'entry' && styles.filterButtonTextActive]}>
-              🚗 Entries
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.filterButton, filterType === 'exit' && styles.filterButtonActive]}
-            onPress={() => setFilterType('exit')}
-          >
-            <Text style={[styles.filterButtonText, filterType === 'exit' && styles.filterButtonTextActive]}>
-              🚙 Exits
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.filterButton, filterType === 'registered' && styles.filterButtonActive]}
-            onPress={() => setFilterType('registered')}
-          >
-            <Text style={[styles.filterButtonText, filterType === 'registered' && styles.filterButtonTextActive]}>
-              ✅ Registered
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.filterButton, filterType === 'unregistered' && styles.filterButtonActive]}
-            onPress={() => setFilterType('unregistered')}
-          >
-            <Text style={[styles.filterButtonText, filterType === 'unregistered' && styles.filterButtonTextActive]}>
-              ⚠️ Unregistered
-            </Text>
-          </TouchableOpacity>
-        </ScrollView>
+        </View>
 
         {/* Logs List */}
         {loading ? (
@@ -495,7 +469,90 @@ export default function DailyLogViewer({ visible, onClose }) {
 
         {renderDetailModal()}
 
-        {/* Photo Modal */}
+        {/* Filter Menu Modal */}
+        <Modal
+          visible={showFilterMenu}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setShowFilterMenu(false)}
+        >
+          <View style={styles.filterMenuOverlay}>
+            <View style={styles.filterMenuContainer}>
+              <View style={styles.filterMenuHeader}>
+                <Text style={styles.filterMenuTitle}>Select Filter</Text>
+                <TouchableOpacity
+                  style={styles.filterMenuClose}
+                  onPress={() => setShowFilterMenu(false)}
+                >
+                  <Text style={styles.filterMenuCloseText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.filterMenuContent}>
+                <TouchableOpacity
+                  style={[styles.filterMenuItem, filterType === 'all' && styles.filterMenuItemActive]}
+                  onPress={() => {
+                    setFilterType('all');
+                    setShowFilterMenu(false);
+                  }}
+                >
+                  <Text style={[styles.filterMenuItemText, filterType === 'all' && styles.filterMenuItemTextActive]}>
+                    All Logs
+                  </Text>
+                  {filterType === 'all' && <Text style={styles.checkmark}>✓</Text>}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.filterMenuItem, filterType === 'entry' && styles.filterMenuItemActive]}
+                  onPress={() => {
+                    setFilterType('entry');
+                    setShowFilterMenu(false);
+                  }}
+                >
+                  <Text style={[styles.filterMenuItemText, filterType === 'entry' && styles.filterMenuItemTextActive]}>
+                    🚗 Entries
+                  </Text>
+                  {filterType === 'entry' && <Text style={styles.checkmark}>✓</Text>}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.filterMenuItem, filterType === 'exit' && styles.filterMenuItemActive]}
+                  onPress={() => {
+                    setFilterType('exit');
+                    setShowFilterMenu(false);
+                  }}
+                >
+                  <Text style={[styles.filterMenuItemText, filterType === 'exit' && styles.filterMenuItemTextActive]}>
+                    🚙 Exits
+                  </Text>
+                  {filterType === 'exit' && <Text style={styles.checkmark}>✓</Text>}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.filterMenuItem, filterType === 'registered' && styles.filterMenuItemActive]}
+                  onPress={() => {
+                    setFilterType('registered');
+                    setShowFilterMenu(false);
+                  }}
+                >
+                  <Text style={[styles.filterMenuItemText, filterType === 'registered' && styles.filterMenuItemTextActive]}>
+                    ✅ Registered
+                  </Text>
+                  {filterType === 'registered' && <Text style={styles.checkmark}>✓</Text>}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.filterMenuItem, filterType === 'unregistered' && styles.filterMenuItemActive]}
+                  onPress={() => {
+                    setFilterType('unregistered');
+                    setShowFilterMenu(false);
+                  }}
+                >
+                  <Text style={[styles.filterMenuItemText, filterType === 'unregistered' && styles.filterMenuItemTextActive]}>
+                    ⚠️ Unregistered
+                  </Text>
+                  {filterType === 'unregistered' && <Text style={styles.checkmark}>✓</Text>}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
         <Modal visible={showPhotoModal} animationType="fade" transparent={true}>
           <View style={styles.photoModalOverlay}>
             <View style={styles.photoModalContainer}>
@@ -562,33 +619,48 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 15,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
   },
   dateButton: {
-    paddingHorizontal: 15,
-    paddingVertical: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
     backgroundColor: '#4a90e2',
-    borderRadius: 6,
+    borderRadius: 25,
+    shadowColor: '#4a90e2',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 2,
   },
   dateButtonDisabled: {
-    backgroundColor: '#ccc',
+    backgroundColor: '#adb5bd',
+    shadowOpacity: 0,
+    elevation: 0,
   },
   dateButtonText: {
     color: '#fff',
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
   },
   dateText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#212529',
+    backgroundColor: '#f8f9fa',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
   },
   statsContainer: {
     flexDirection: 'row',
-    padding: 15,
+    paddingHorizontal: 15,
+    paddingVertical: 8,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
@@ -596,48 +668,139 @@ const styles = StyleSheet.create({
   statCard: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    backgroundColor: '#fff',
+    marginHorizontal: 4,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   statValue: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
     color: '#4a90e2',
   },
   unregisteredValue: {
-    color: '#f44336',
+    color: '#dc3545',
   },
   statLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 4,
+    fontSize: 13,
+    color: '#6c757d',
+    marginTop: 6,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  filterContainer: {
+  filterBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     backgroundColor: '#fff',
     paddingHorizontal: 15,
-    paddingVertical: 6,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
   },
-  filterButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    marginRight: 6,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 12,
-    height: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
+  currentFilterText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#212529',
+    flex: 1,
   },
-  filterButtonActive: {
+  hamburgerButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     backgroundColor: '#4a90e2',
+    borderRadius: 8,
+    shadowColor: '#4a90e2',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 2,
   },
-  filterButtonText: {
-    fontSize: 11,
-    color: '#666',
+  hamburgerIcon: {
+    fontSize: 20,
+    color: '#fff',
     fontWeight: '600',
   },
-  filterButtonTextActive: {
+  filterMenuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  filterMenuContainer: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '60%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
+  },
+  filterMenuHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    backgroundColor: '#f8f9fa',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+  },
+  filterMenuTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  filterMenuClose: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: '#fff',
+  },
+  filterMenuCloseText: {
+    fontSize: 18,
+    color: '#666',
+    fontWeight: 'bold',
+  },
+  filterMenuContent: {
+    padding: 20,
+  },
+  filterMenuItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  filterMenuItemActive: {
+    backgroundColor: '#4a90e2',
+    borderColor: '#4a90e2',
+  },
+  filterMenuItemText: {
+    fontSize: 16,
+    color: '#495057',
+    fontWeight: '600',
+  },
+  filterMenuItemTextActive: {
     color: '#fff',
+    fontWeight: '700',
+  },
+  checkmark: {
+    fontSize: 18,
+    color: '#fff',
+    fontWeight: 'bold',
   },
   loadingContainer: {
     flex: 1,
@@ -662,101 +825,132 @@ const styles = StyleSheet.create({
   },
   logsList: {
     flex: 1,
-    padding: 15,
+    paddingHorizontal: 15,
+    paddingTop: 8,
+    paddingBottom: 15,
   },
   logCard: {
     backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 10,
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 8,
+    marginBottom: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
-    elevation: 2,
-    borderLeftWidth: 3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    borderLeftWidth: 4,
     borderLeftColor: '#4a90e2',
   },
   unregisteredCard: {
-    borderLeftColor: '#f44336',
+    borderLeftColor: '#dc3545',
     backgroundColor: '#fff5f5',
+    borderWidth: 1,
+    borderColor: '#f8d7da',
   },
   logHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   logHeaderLeft: {
     flex: 1,
   },
   licensePlate: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
+    color: '#212529',
+    marginBottom: 10,
   },
   badges: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: 8,
   },
   badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   entryBadge: {
-    backgroundColor: '#e8f5e9',
+    backgroundColor: '#d4edda',
+    borderColor: '#c3e6cb',
   },
   exitBadge: {
-    backgroundColor: '#fff3e0',
+    backgroundColor: '#fff3cd',
+    borderColor: '#ffeaa7',
   },
   unregisteredBadge: {
-    backgroundColor: '#ffebee',
+    backgroundColor: '#f8d7da',
+    borderColor: '#f5c6cb',
   },
   registeredBadge: {
-    backgroundColor: '#e8f5e9',
+    backgroundColor: '#d4edda',
+    borderColor: '#c3e6cb',
   },
   badgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#333',
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#212529',
   },
   time: {
     fontSize: 14,
-    color: '#666',
+    color: '#6c757d',
     fontWeight: '600',
-  },
-  vehicleInfo: {
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-  },
-  infoText: {
-    fontSize: 13,
-    color: '#666',
-    marginBottom: 4,
-  },
-  phoneButton: {
-    marginTop: 6,
+    backgroundColor: '#f8f9fa',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: '#4a90e2',
-    borderRadius: 6,
+    borderRadius: 12,
+  },
+  vehicleInfo: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#e9ecef',
+    backgroundColor: '#f8f9fa',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginHorizontal: -4,
+  },
+  infoText: {
+    fontSize: 14,
+    color: '#495057',
+    marginBottom: 6,
+    fontWeight: '500',
+  },
+  phoneButton: {
+    marginTop: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#28a745',
+    borderRadius: 20,
     alignSelf: 'flex-start',
+    shadowColor: '#28a745',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 2,
   },
   phoneButtonText: {
-    fontSize: 13,
+    fontSize: 14,
     color: '#fff',
     fontWeight: '600',
   },
   confidence: {
     fontSize: 12,
-    color: '#999',
-    marginTop: 6,
+    color: '#6c757d',
+    marginTop: 8,
     fontStyle: 'italic',
+    backgroundColor: '#e9ecef',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
   },
   detailModalOverlay: {
     flex: 1,
@@ -826,15 +1020,20 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   viewPhotoButtonSmall: {
-    backgroundColor: '#4a90e2',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 6,
-    marginTop: 8,
+    backgroundColor: '#17a2b8',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 18,
+    marginTop: 10,
     alignSelf: 'flex-start',
+    shadowColor: '#17a2b8',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 2,
   },
   viewPhotoButtonSmallText: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#fff',
     fontWeight: '600',
   },
