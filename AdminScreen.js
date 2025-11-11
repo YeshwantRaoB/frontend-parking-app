@@ -604,6 +604,58 @@ export default function AdminScreen() {
     }
   };
 
+  const toggleNotification = async (vehicle) => {
+    setActionProcessing(true);
+    try {
+      const token = await getToken();
+      const response = await fetch(`${API_BASE_URL}/vehicles/${vehicle._id}/toggle-notification`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to toggle notification');
+      }
+
+      const result = await response.json();
+      Alert.alert(
+        'Success', 
+        result.message || `Notifications ${result.notifyOnEntry ? 'enabled' : 'disabled'}`
+      );
+      
+      // Update the vehicle in the local state
+      setAllVehicles(prevVehicles => 
+        prevVehicles.map(v => 
+          v._id === vehicle._id 
+            ? { ...v, notifyOnEntry: result.notifyOnEntry }
+            : v
+        )
+      );
+      
+      // Reapply filters to update the displayed list
+      applyClientSideFiltering(
+        allVehicles.map(v => 
+          v._id === vehicle._id 
+            ? { ...v, notifyOnEntry: result.notifyOnEntry }
+            : v
+        ),
+        activeFilters,
+        searchQuery,
+        sortBy,
+        sortOrder
+      );
+    } catch (error) {
+      console.error('Error toggling notification:', error);
+      Alert.alert('Error', error.message || 'Failed to toggle notification');
+    } finally {
+      setActionProcessing(false);
+    }
+  };
+
   const handleSignOut = useCallback(async () => {
     try {
       await signOut();
@@ -1019,6 +1071,14 @@ export default function AdminScreen() {
                 <Text style={styles.photoBtnText}>🚗</Text>
               </TouchableOpacity>
             )}
+            {item.drivingLicensePhotoUrl && (
+              <TouchableOpacity
+                style={styles.photoBtn}
+                onPress={() => showPhoto(item.drivingLicensePhotoUrl, 'Driving License', `${item.licencePlate} - ${item.fullName}`)}
+              >
+                <Text style={styles.photoBtnText}>🪪</Text>
+              </TouchableOpacity>
+            )}
             {item.ownerPhotoUrl && (
               <TouchableOpacity
                 style={styles.photoBtn}
@@ -1027,6 +1087,15 @@ export default function AdminScreen() {
                 <Text style={styles.photoBtnText}>👤</Text>
               </TouchableOpacity>
             )}
+            <TouchableOpacity
+              style={[
+                styles.photoBtn,
+                item.notifyOnEntry && styles.photoBtnActive
+              ]}
+              onPress={() => toggleNotification(item)}
+            >
+              <Text style={styles.photoBtnText}>🔔</Text>
+            </TouchableOpacity>
           </View>
 
           {/* Edit/Delete Buttons */}
@@ -2639,6 +2708,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
+  },
+  photoBtnActive: {
+    backgroundColor: '#fef3c7',
+    borderColor: '#fbbf24',
+    shadowColor: '#fbbf24',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
   photoBtnText: {
     fontSize: 18,

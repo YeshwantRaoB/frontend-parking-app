@@ -87,6 +87,47 @@ export default function DailyLogViewer({ visible, onClose }) {
     fetchDailyLogs(true);
   };
 
+  const downloadExcel = async () => {
+    try {
+      const token = await getToken();
+      const dateStr = selectedDate.toISOString().split('T')[0];
+      
+      Alert.alert(
+        'Download Excel',
+        `Download vehicle logs for ${formatDate(selectedDate)}?`,
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel'
+          },
+          {
+            text: 'Download',
+            onPress: async () => {
+              try {
+                // Construct URL with token in query parameter for mobile compatibility
+                const downloadUrl = `${API_BASE_URL}/logs/daily/export?date=${dateStr}&token=${encodeURIComponent(token)}`;
+                
+                const supported = await Linking.canOpenURL(downloadUrl);
+                if (supported) {
+                  await Linking.openURL(downloadUrl);
+                  Alert.alert('Success', 'Excel file download started. Check your downloads folder.');
+                } else {
+                  Alert.alert('Error', 'Cannot open download link');
+                }
+              } catch (err) {
+                console.error('Error opening download URL:', err);
+                Alert.alert('Error', 'Failed to open download link');
+              }
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Error downloading Excel:', error);
+      Alert.alert('Error', 'Failed to download Excel file');
+    }
+  };
+
   const changeDate = (days) => {
     const newDate = new Date(selectedDate);
     newDate.setDate(newDate.getDate() + days);
@@ -378,9 +419,18 @@ export default function DailyLogViewer({ visible, onClose }) {
       <View style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Daily Vehicle Log</Text>
-          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-            <Text style={styles.closeButtonText}>✕</Text>
-          </TouchableOpacity>
+          <View style={styles.headerButtons}>
+            <TouchableOpacity 
+              style={styles.downloadButton} 
+              onPress={downloadExcel}
+              disabled={loading || logs.length === 0}
+            >
+              <Text style={styles.downloadButtonText}>📥 Excel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+              <Text style={styles.closeButtonText}>✕</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Date Navigation */}
@@ -604,6 +654,27 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#333',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  downloadButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#10b981',
+    borderRadius: 8,
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  downloadButtonText: {
+    fontSize: 13,
+    color: '#fff',
+    fontWeight: '600',
   },
   closeButton: {
     padding: 8,
