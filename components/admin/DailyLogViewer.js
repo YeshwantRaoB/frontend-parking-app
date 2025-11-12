@@ -186,6 +186,47 @@ export default function DailyLogViewer({ visible, onClose }) {
     );
   };
 
+  const handleDeleteLog = (log) => {
+    Alert.alert(
+      'Delete Log Entry',
+      `Are you sure you want to delete this ${log.eventType} log?\n\n${log.licencePlate}\n${formatTime(log.timestamp)}`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => confirmDeleteLog(log._id)
+        }
+      ]
+    );
+  };
+
+  const confirmDeleteLog = async (logId) => {
+    try {
+      const token = await getToken();
+      const response = await fetch(`${API_BASE_URL}/logs/${logId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete log');
+      }
+
+      Alert.alert('Success', 'Log entry deleted successfully');
+      
+      // Refresh the logs
+      fetchDailyLogs();
+    } catch (error) {
+      console.error('Error deleting log:', error);
+      Alert.alert('Error', error.message || 'Failed to delete log entry');
+    }
+  };
+
   const renderLogItem = ({ item }) => {
     const isEntry = item.eventType === 'entry';
     const isRegistered = item.isRegistered;
@@ -269,6 +310,16 @@ export default function DailyLogViewer({ visible, onClose }) {
             Confidence: {Math.round(item.confidence * 100)}%
           </Text>
         )}
+
+        <TouchableOpacity
+          style={styles.deleteLogButton}
+          onPress={(e) => {
+            e.stopPropagation();
+            handleDeleteLog(item);
+          }}
+        >
+          <Text style={styles.deleteLogButtonText}>🗑️ Delete</Text>
+        </TouchableOpacity>
       </TouchableOpacity>
     );
   };
@@ -1022,6 +1073,21 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
     alignSelf: 'flex-start',
+  },
+  deleteLogButton: {
+    marginTop: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: '#fee',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#fcc',
+    alignSelf: 'flex-end',
+  },
+  deleteLogButtonText: {
+    fontSize: 12,
+    color: '#dc3545',
+    fontWeight: '600',
   },
   detailModalOverlay: {
     flex: 1,
