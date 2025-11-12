@@ -107,6 +107,7 @@ export default function AdminScreen() {
   const [showOverflowMenu, setShowOverflowMenu] = useState(false);
   const [showWhitelistManager, setShowWhitelistManager] = useState(false);
   const [showDailyLog, setShowDailyLog] = useState(false);
+  const [showBulkUploadModal, setShowBulkUploadModal] = useState(false);
 
   // Data state
   const [selectedVehicle, setSelectedVehicle] = useState(null);
@@ -1660,6 +1661,20 @@ export default function AdminScreen() {
                 style={styles.overflowMenuItem}
                 onPress={() => {
                   setShowOverflowMenu(false);
+                  setShowBulkUploadModal(true);
+                }}
+              >
+                <Text style={styles.overflowMenuItemIcon}>📤</Text>
+                <View style={styles.overflowMenuItemContent}>
+                  <Text style={styles.overflowMenuItemTitle}>Bulk Upload Users</Text>
+                  <Text style={styles.overflowMenuItemSubtitle}>Upload students/staff via Excel</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.overflowMenuItem}
+                onPress={() => {
+                  setShowOverflowMenu(false);
                   setShowAddAdminModal(true);
                 }}
               >
@@ -1713,6 +1728,62 @@ export default function AdminScreen() {
         visible={showDailyLog}
         onClose={() => setShowDailyLog(false)}
       />
+
+      {/* Bulk Upload Users Modal */}
+      <Modal visible={showBulkUploadModal} animationType="slide" transparent={true}>
+        <View style={styles.bulkUploadOverlay}>
+          <View style={styles.bulkUploadContainer}>
+            <View style={styles.bulkUploadHeader}>
+              <Text style={styles.bulkUploadTitle}>Bulk Upload Users</Text>
+              <TouchableOpacity
+                style={styles.bulkUploadClose}
+                onPress={() => setShowBulkUploadModal(false)}
+              >
+                <Text style={styles.bulkUploadCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.bulkUploadContent}>
+              <View style={styles.bulkUploadInfo}>
+                <Text style={styles.bulkUploadInfoIcon}>📋</Text>
+                <Text style={styles.bulkUploadInfoTitle}>Upload Excel File</Text>
+                <Text style={styles.bulkUploadInfoText}>
+                  Upload an Excel file (.xlsx) containing student or staff information to add them to the whitelist.
+                </Text>
+              </View>
+
+              <View style={styles.bulkUploadInstructions}>
+                <Text style={styles.bulkUploadInstructionsTitle}>Required Columns:</Text>
+                <Text style={styles.bulkUploadInstructionsText}>• Email</Text>
+                <Text style={styles.bulkUploadInstructionsText}>• User Type (Student/Staff)</Text>
+                <Text style={styles.bulkUploadInstructionsText}>• Branch (for Students)</Text>
+                <Text style={styles.bulkUploadInstructionsText}>• Department (for Staff)</Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.bulkUploadButton}
+                onPress={() => {
+                  Alert.alert(
+                    'Feature Coming Soon',
+                    'Bulk upload functionality will be implemented soon. This is a placeholder for now.',
+                    [{ text: 'OK' }]
+                  );
+                }}
+              >
+                <Text style={styles.bulkUploadButtonIcon}>📤</Text>
+                <Text style={styles.bulkUploadButtonText}>Select Excel File</Text>
+              </TouchableOpacity>
+
+              <View style={styles.bulkUploadNote}>
+                <Text style={styles.bulkUploadNoteIcon}>ℹ️</Text>
+                <Text style={styles.bulkUploadNoteText}>
+                  This feature is currently under development. You'll be able to upload Excel files to bulk add users to the whitelist.
+                </Text>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       </View>
       <Footer />
@@ -3336,5 +3407,131 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginTop: 2,
     lineHeight: 16,
+  },
+
+  // Bulk Upload Modal Styles
+  bulkUploadOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  bulkUploadContainer: {
+    width: '90%',
+    maxHeight: '80%',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  bulkUploadHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: '#f8f9fa',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  bulkUploadTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  bulkUploadClose: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: '#fff',
+  },
+  bulkUploadCloseText: {
+    fontSize: 18,
+    color: '#666',
+    fontWeight: 'bold',
+  },
+  bulkUploadContent: {
+    padding: 20,
+  },
+  bulkUploadInfo: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  bulkUploadInfoIcon: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  bulkUploadInfoTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  bulkUploadInfoText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  bulkUploadInstructions: {
+    backgroundColor: '#f8f9fa',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 24,
+  },
+  bulkUploadInstructionsTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  bulkUploadInstructionsText: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4,
+  },
+  bulkUploadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#4a90e2',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    marginBottom: 20,
+    shadowColor: '#4a90e2',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  bulkUploadButtonIcon: {
+    fontSize: 20,
+    marginRight: 8,
+  },
+  bulkUploadButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  bulkUploadNote: {
+    flexDirection: 'row',
+    backgroundColor: '#fff3cd',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ffc107',
+  },
+  bulkUploadNoteIcon: {
+    fontSize: 16,
+    marginRight: 8,
+  },
+  bulkUploadNoteText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#856404',
+    lineHeight: 18,
   },
 });
