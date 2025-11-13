@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth, useOAuth } from '@clerk/clerk-expo';
 import Footer from '../components/Footer';
@@ -44,9 +44,13 @@ export default function LoginScreen({ navigation }) {
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         <View style={styles.logoContainer}>
-          <Text style={styles.logoText}>🚗</Text>
+          <Image 
+            source={require('../assets/loginlogo.png')} 
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
         </View>
-        <Text style={styles.title}>College Parking Management</Text>
+        <Text style={styles.title}>Campus Parking Management</Text>
         <Text style={styles.subtitle}>Sign in with your college email to continue</Text>
         
         {isLoading ? (
@@ -93,23 +97,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logoContainer: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: '#4a90e2',
+    width: 340,
+    height: 340,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 35,
-    shadowColor: '#4a90e2',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
-    borderWidth: 3,
-    borderColor: '#fff',
   },
-  logoText: {
-    fontSize: 55,
+  logoImage: {
+    width: '100%',
+    height: '100%',
   },
   title: {
     fontSize: 28,

@@ -156,10 +156,10 @@ export default function Footer() {
 
           <View style={styles.titleWrap}>
             <Text style={[styles.title, isDark && styles.titleDark]}>
-              KPT Parking Manager
+              SentriPark
             </Text>
             <Text style={[styles.subtitle, isDark && styles.subtitleDark]}>
-              v3.2 • Smart Campus Solutions
+              v5.8 • Smart Campus Solutions
             </Text>
           </View>
 
