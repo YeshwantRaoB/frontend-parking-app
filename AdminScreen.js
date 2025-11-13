@@ -3299,7 +3299,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingTop: 40,
     paddingBottom: 12,
     backgroundColor: '#ffffff',
     borderBottomWidth: 2,
